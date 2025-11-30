@@ -12,3 +12,8 @@ Repartition des tâches :
 	- Fotis : 
 - Ds 1-2 semaines mise en commun et début des experiences gobales
 
+### Meeting 30/11
+
+Pour jeudi 
+	- Finir partie Maths rapport
+	- Finir opti background
