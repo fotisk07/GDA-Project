@@ -1,6 +1,6 @@
-from kernel_solvers import rbf_kernel
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from kernel_solvers import rbf_kernel
 
 
 def condition_benchmark(start=1, stop=3, num=100):
