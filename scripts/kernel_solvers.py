@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.linalg import solve_triangular
-
+import falkon
+import torch
 
 def rbf_kernel(X1, X2, sigma=0.6):
     # X1 (N, d)
@@ -150,3 +151,17 @@ def solve_falkon(X, y, m=100, sigma=1.0, lam=1e-2):
     alpha = v / np.sqrt(n)
 
     return alpha, idx
+
+
+class FalkonSolverGPU:
+    def __init__(self, sigma, lam):
+        self.options = falkon.FalkonOptions(keops_active="no")
+        self.kernel = falkon.kernels.GaussianKernel(sigma=sigma, opt=self.options)
+        self.lam = lam
+    def __call__(self,X,y,m):
+        self.flk = falkon.Falkon(kernel=self.kernel, penalty=self.lam, M=m, options=self.options)
+        self.flk.fit(X,y)
+    def predict(self,X):
+        with torch.no_grad():
+            return self.flk.predict(X).flatten()
+        
