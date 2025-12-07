@@ -2,6 +2,8 @@ import numpy as np
 from scipy.linalg import solve_triangular
 import falkon
 import torch
+import gpytorch
+import math
 
 def rbf_kernel(X1, X2, sigma=0.6):
     # X1 (N, d)
@@ -40,6 +42,9 @@ def solve_l2_problem_Nystrom(X, y, m=10, sigma=1.0, reg=1e-2):
 
     return beta, indices
 
+def predict_nystrom(X_test, Xm, beta, sigma):
+    K_test_m = rbf_kernel(X_test, Xm, sigma)
+    return K_test_m @ beta
 
 def predict(X_test, X_train, coeff):
     K_test = rbf_kernel(X_test, X_train)
@@ -165,3 +170,122 @@ class FalkonSolverGPU:
         with torch.no_grad():
             return self.flk.predict(X).flatten()
         
+
+class SVGPSolverGPyTorch:
+    """
+    GPyTorch SVGP solver wrapper with:
+    - Gaussian likelihood (regression)
+    - NGD for variational params
+    - Adam for hyperparameters
+    - Unwhitened inducing points
+    """
+
+    def __init__(
+        self,
+        num_iters=300,
+        lr=0.05,
+        use_cuda=True,
+    ):
+        self.num_iters = num_iters
+        self.lr = lr
+        self.device = (
+            torch.device("cuda")
+            if (use_cuda and torch.cuda.is_available())
+            else torch.device("cpu")
+        )
+
+    # ---- SVGP Model definition ----
+    class _SVGPModel(gpytorch.models.ApproximateGP):
+        def __init__(self, inducing_points):
+            variational_distribution = (
+                gpytorch.variational.NaturalVariationalDistribution(
+                    inducing_points.size(0)
+                )
+            )
+
+            variational_strategy = gpytorch.variational.VariationalStrategy(
+                self,
+                inducing_points,
+                variational_distribution,
+                learn_inducing_locations=True,
+            )
+
+            super().__init__(variational_strategy)
+
+            self.mean_module = gpytorch.means.ConstantMean()
+            self.covar_module = gpytorch.kernels.ScaleKernel(
+                gpytorch.kernels.RBFKernel()
+            )
+
+        def forward(self, x):
+            mean_x = self.mean_module(x)
+            covar_x = self.covar_module(x)
+            return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
+    # ---- Training call (same interface as FalkonSolverGPU) ----
+    def __call__(self, X, y, m):
+        X = X.to(self.device).float()
+        y = y.to(self.device).float()
+
+        n = X.shape[0]
+
+        # Choose inducing points
+        idx = torch.randperm(n, device=self.device)[:m]
+        inducing_points = X[idx].clone()
+
+        # Build model + likelihood
+        self.model = self._SVGPModel(inducing_points).to(self.device)
+        self.likelihood = gpytorch.likelihoods.GaussianLikelihood().to(self.device)
+
+        self.model.train()
+        self.likelihood.train()
+
+        # ELBO
+        mll = gpytorch.mlls.VariationalELBO(
+            self.likelihood,
+            self.model,
+            num_data=n,
+        )
+
+        # --- split parameters for optimizers ---
+        variational_params = list(self.model.variational_parameters())
+        hyperparams = (
+            [
+                p for name, p in self.model.named_parameters()
+                if "variational" not in name
+            ]
+            + list(self.likelihood.parameters())
+        )
+
+        nat_opt = gpytorch.optim.NGD(
+            variational_params,
+            lr=self.lr,
+            num_data=n,
+        )
+
+        adam_opt = torch.optim.Adam(
+            hyperparams,
+            lr=self.lr,
+        )
+
+        # ---- training loop ----
+        for _ in range(self.num_iters):
+            nat_opt.zero_grad()
+            adam_opt.zero_grad()
+
+            out = self.model(X)
+            loss = -mll(out, y)
+
+            loss.backward()
+            nat_opt.step()
+            adam_opt.step()
+
+        self.model.eval()
+        self.likelihood.eval()
+
+    # ---- Prediction ----
+    @torch.no_grad()
+    def predict(self, X):
+        X = X.to(self.device).float()
+        preds = self.likelihood(self.model(X))
+        return preds.mean.cpu().flatten()

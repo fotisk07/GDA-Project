@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 import falkon
 from tqdm import tqdm
 import time
-from kernel_solvers import FalkonSolverGPU
+from kernel_solvers import FalkonSolverGPU, SVGPSolverGPyTorch
 
 def create_dataset(test_size:int = 0.1) -> tuple[torch.Tensor, torch.Tensor,torch.Tensor,torch.Tensor]:
     data_path = "data/YearPredictionMSD.txt"
@@ -92,6 +92,25 @@ def benchmark_falkonGPU(sigma, lam, start, stop, num_points):
         filepath="outputs/MDS_FalkonGPU.csv",
     )
 
+def benchmark_svgp(start, stop, num_points):
+    SVGP = SVGPSolverGPyTorch(
+        num_iters=300,   # can be tuned
+        lr=0.05
+    )
+
+    return run_benchmark(
+        method="SVGP-GPyTorch",
+        solver=SVGP,
+        start=start,
+        stop=stop,
+        num_points=num_points,
+        filepath="outputs/MDS_SVGP.csv",
+    )
 
 
-df_falkongpu = benchmark_falkonGPU(sigma=6, lam=1e-6, start=2, stop=4, num_points=5)
+
+df_falkongpu = benchmark_falkonGPU(sigma=6, lam=1e-6, start=2, stop=4.5, num_points=10) 
+df_svgp = benchmark_svgp(start=2, stop=3, num_points=10)
+
+df_all = pd.concat([df_falkongpu, df_svgp], ignore_index=True)
+df_all.to_csv("outputs/MDS_benchmark_all_methods.csv", index=False)
