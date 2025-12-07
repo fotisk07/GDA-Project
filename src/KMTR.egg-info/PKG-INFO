@@ -5,6 +5,7 @@ Summary: Add your description here
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: falkon
+Requires-Dist: fastparquet>=2024.11.0
 Requires-Dist: gpytorch>=1.13
 Requires-Dist: h5py>=3.14.0
 Requires-Dist: ipykernel>=6.31.0

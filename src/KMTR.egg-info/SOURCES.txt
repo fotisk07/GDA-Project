@@ -5,5 +5,6 @@ src/KMTR.egg-info/SOURCES.txt
 src/KMTR.egg-info/dependency_links.txt
 src/KMTR.egg-info/requires.txt
 src/KMTR.egg-info/top_level.txt
-src/kmtr/datasets.py
+src/kmtr/datasets_and_metrics.py
 src/kmtr/kernel_solvers.py
+src/kmtr/mini_higgs.py

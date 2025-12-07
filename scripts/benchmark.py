@@ -1,6 +1,6 @@
 import time
 import pandas as pd
-
+import torch
 from kmtr.datasets_and_metrics import BENCHMARKS
 from kmtr.kernel_solvers import SOLVERS
 import argparse
@@ -50,6 +50,8 @@ def run(model, m, metric, Xtr, ytr, Xte, y_te):
     t_pred = time.time() - t0
 
     err = metric(y_pred, y_te)
+    if isinstance(err, torch.Tensor):
+        err = err.item()
 
     print(f"train {t_fit:.2f}s | predict {t_pred:.2f}s | err {err:.5f}")
 
@@ -57,7 +59,7 @@ def run(model, m, metric, Xtr, ytr, Xte, y_te):
         "train_s": t_fit,
         "predict_s": t_pred,
         "total_s": t_fit + t_pred,
-        "rel_err": err.item(),
+        "rel_err": err,
     }
 
 

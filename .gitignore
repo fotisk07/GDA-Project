@@ -2,3 +2,5 @@ __pycache__
 .venv
 data/*
 !data/download.sh
+!data/higgs.py
+!data/mini_higgs.py
