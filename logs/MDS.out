@@ -1,0 +1,8 @@
+torch.Size([463810, 90])
+Benchmarking FalkonGPU
+[  100   189   359   681  1291  2448  4641  8799 16681 31622]
+Saved FalkonGPU benchmark to: outputs/MDS_FalkonGPU.csv
+torch.Size([463810, 90])
+Benchmarking SVGP-GPyTorch
+[ 100  129  166  215  278  359  464  599  774 1000]
+Saved SVGP-GPyTorch benchmark to: outputs/MDS_SVGP.csv

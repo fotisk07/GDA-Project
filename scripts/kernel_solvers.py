@@ -1,9 +1,13 @@
-import numpy as np
-from scipy.linalg import solve_triangular
-import falkon
-import torch
 import gpytorch
-import math
+import numpy as np
+import torch
+from scipy.linalg import solve_triangular
+
+try:
+    import falkon
+except:
+    print("Falkon library not imported, you are not on GPU")
+
 
 def rbf_kernel(X1, X2, sigma=0.6):
     # X1 (N, d)
@@ -14,148 +18,164 @@ def rbf_kernel(X1, X2, sigma=0.6):
     return np.exp(-sq_dist / (2 * sigma**2))
 
 
-def solve_l2_problem(X, y, sigma=0.1, reg=0.1):
-    N, d = X.shape
-
-    # Computer Kernel
-    K = rbf_kernel(X, X, sigma=sigma)
-    A = K + reg * N * np.eye(N)
-    alpha_sol = np.linalg.solve(A, y)
-
-    return alpha_sol
-
-
-def solve_l2_problem_Nystrom(X, y, m=10, sigma=1.0, reg=1e-2):
-    n = len(X)
-    indices = np.random.choice(n, size=m, replace=False)
-    Xm = X[indices]
-
-    # Kernels
-    K_mm = rbf_kernel(Xm, Xm, sigma)  # (m, m)
-    K_mn = rbf_kernel(Xm, X, sigma)  # (m, n)
-
-    # Nyström system:
-    A = K_mn @ K_mn.T + reg * n * K_mm  # (m, m)
-    b = K_mn @ y  # (m,)
-
-    beta = np.linalg.solve(A, b)
-
-    return beta, indices
-
-def predict_nystrom(X_test, Xm, beta, sigma):
-    K_test_m = rbf_kernel(X_test, Xm, sigma)
-    return K_test_m @ beta
-
-def predict(X_test, X_train, coeff):
-    K_test = rbf_kernel(X_test, X_train)
-    return K_test @ coeff
-
-
-class FalkonMatVec:
-    def __init__(self, X, Xm, T, A, sigma, lam):
-        self.X = X
-        self.Xm = Xm
-        self.T = T
-        self.A = A
-        self.lam = lam
-        self.n = len(X)
+class VanillaKRR:
+    def __init__(self, sigma: float = 1, lam: float = 0.1):
         self.sigma = sigma
+        self.lam = lam
 
-        self.Knm = rbf_kernel(X, Xm, sigma=sigma)  # (n,m)
-        self.Kmn = self.Knm.T  # (m,n)
+    def fit(self, X, y):
+        N = len(X)
+        K = rbf_kernel(X, X, sigma=self.sigma)
+        A = K + self.lam * N * np.eye(N)
+        self.coeff = np.linalg.solve(A, y)
+        self.X_train = X
 
-    def apply(self, v):
-        """
-        Computes:
-        v -> P^T H P v   (no explicit matrices)
-        """
-        # v1 = A^{-1} v
-        v1 = solve_triangular(self.A, v, lower=True)
-
-        # v2 = T^{-1} v1
-        v2 = solve_triangular(self.T, v1, lower=True)
-
-        # kernel block:
-        tmp = self.Knm @ v2  # (n,)
-        tmp = self.Kmn @ tmp  # (m,)
-
-        # T^{-T}, A^{-T}
-        tmp = solve_triangular(self.T.T, tmp, lower=False)
-        tmp = solve_triangular(self.A.T, tmp, lower=False)
-
-        # main term
-        out = tmp / self.n
-
-        # regularization term: λ A^{-T}A^{-1} v
-        reg = solve_triangular(self.A.T, v1, lower=False)
-        out += self.lam * reg
-
-        return out
+    def predict(self, X_test):
+        K_test = rbf_kernel(X_test, self.X_train)
+        return K_test @ self.coeff
 
 
-def pcg(matvec, b, tol=1e-6, maxit=50):
-    """
-    Minimal preconditioned conjugate gradient
-    """
-    x = np.zeros_like(b)
-    r = b - matvec(x)
-    p = r.copy()
-    rs = r @ r
+class Nystrom:
+    def __init__(self, sigma, lam):
+        self.sigma = sigma
+        self.lam = lam
 
-    for k in range(maxit):
-        Ap = matvec(p)
+    def fit(self, X, y, m):
+        n = len(X)
+        indices = np.random.choice(n, size=m, replace=False)
+        Xm = X[indices]
 
-        alpha = rs / (p @ Ap)
-        x += alpha * p
-        r -= alpha * Ap
+        # Kernels
+        K_mm = rbf_kernel(Xm, Xm, self.sigma)  # (m, m)
+        K_mn = rbf_kernel(Xm, X, self.sigma)  # (m, n)
 
-        rs_new = r @ r
-        if np.sqrt(rs_new) < tol:
-            print(f"CG converged in {k + 1} iterations")
-            break
+        # Nyström system:
+        A = K_mn @ K_mn.T + self.lam * n * K_mm  # (m, m)
+        b = K_mn @ y  # (m,)
 
-        p = r + (rs_new / rs) * p
-        rs = rs_new
+        self.coeff = np.linalg.solve(A, b)
+        self.Xm = Xm
+        self.indices = indices
 
-    return x
+    def predict(self, X_test):
+        K_test_m = rbf_kernel(X_test, self.Xm, self.sigma)
+        return K_test_m @ self.coeff
 
 
-def solve_falkon(X, y, m=100, sigma=1.0, lam=1e-2):
-    n = len(X)
+class Falkon:
+    def __init__(self, sigma, lam):
+        self.sigma = sigma
+        self.lam = lam
 
-    # 1) landmark selection
-    idx = np.random.choice(n, size=m, replace=False)
-    Xm = X[idx]
+        self.coeff = None
+        self.Xm = None
 
-    # 2) kernel blocks
-    Kmm = rbf_kernel(Xm, Xm, sigma)
-    Kmn = rbf_kernel(Xm, X, sigma)
+    @staticmethod
+    def pcg(matvec, b, tol=1e-6, maxit=50):
+        x = np.zeros_like(b)
 
-    # 3) Cholesky factors
-    jitter = 1e-10 * np.trace(Kmm) / m
-    T = np.linalg.cholesky(Kmm + jitter * np.eye(m))
+        r = b - matvec(x)
+        p = r.copy()
+        rs = r @ r
 
-    A = np.linalg.cholesky((T @ T.T) / m + lam * np.eye(m))
+        for k in range(maxit):
+            Ap = matvec(p)
 
-    # 4) RHS: b = P^T Kmn y
-    # here: b_tilde = A^{-T} T^{-T} Kmn y / sqrt(n)
-    b = Kmn @ y
+            alpha = rs / (p @ Ap)
+            x += alpha * p
+            r -= alpha * Ap
 
-    b = solve_triangular(T.T, b, lower=False)
-    b = solve_triangular(A.T, b, lower=False)
-    b = b / np.sqrt(n)
+            rs_new = r @ r
+            if np.sqrt(rs_new) < tol:
+                print(f"CG converged in {k + 1} iterations")
+                break
 
-    # 5) Matrix-free CG operator
-    mv = FalkonMatVec(X, Xm, T, A, sigma, lam)
-    beta = pcg(mv.apply, b, maxit=40)
+            p = r + (rs_new / rs) * p
+            rs = rs_new
 
-    # 6) recover alpha = P beta
-    v = solve_triangular(A, beta, lower=True)
-    v = solve_triangular(T, v, lower=True)
+        return x
 
-    alpha = v / np.sqrt(n)
+    class _MatVec:
+        def __init__(self, X, Xm, T, A, sigma, lam):
+            self.X = X
+            self.Xm = Xm
+            self.T = T
+            self.A = A
+            self.sigma = sigma
+            self.lam = lam
 
-    return alpha, idx
+            self.n = len(X)
+
+            # Precompute and cache kernels
+            self.Knm = rbf_kernel(X, Xm, sigma=sigma)  # (n, m)
+            self.Kmn = self.Knm.T  # (m, n)
+
+        def apply(self, v):
+            # v1 = A^{-1} v
+            v1 = solve_triangular(self.A, v, lower=True)
+
+            # v2 = T^{-1} v1
+            v2 = solve_triangular(self.T, v1, lower=True)
+
+            # kernel term
+            tmp = self.Knm @ v2
+            tmp = self.Kmn @ tmp
+
+            # T^{-T}, A^{-T}
+            tmp = solve_triangular(self.T.T, tmp, lower=False)
+            tmp = solve_triangular(self.A.T, tmp, lower=False)
+
+            out = tmp / self.n
+
+            # regularization term  A^{-T}A^{-1}v
+            reg = solve_triangular(self.A.T, v1, lower=False)
+            out += self.lam * reg
+
+            return out
+
+    def fit(self, X, y, m):
+        n = len(X)
+
+        # 1) Landmark selection
+        idx = np.random.choice(n, size=m, replace=False)
+        Xm = X[idx]
+
+        # 2) Kernel blocks
+        Kmm = rbf_kernel(Xm, Xm, self.sigma)
+        Kmn = rbf_kernel(Xm, X, self.sigma)
+
+        # 3) Preconditioner Cholesky factors
+        jitter = 1e-10 * np.trace(Kmm) / m
+        T = np.linalg.cholesky(Kmm + jitter * np.eye(m))
+        A = np.linalg.cholesky((T @ T.T) / m + self.lam * np.eye(m))
+
+        # 4) RHS construction
+        b = Kmn @ y
+
+        b = solve_triangular(T.T, b, lower=False)
+        b = solve_triangular(A.T, b, lower=False)
+        b /= np.sqrt(n)
+
+        # 5) PCG solve of preconditioned system
+        mv = Falkon._MatVec(X, Xm, T, A, self.sigma, self.lam)
+        beta = Falkon.pcg(mv.apply, b, maxit=40)
+
+        # 6) Recover primal coefficients
+        v = solve_triangular(A, beta, lower=True)
+        v = solve_triangular(T, v, lower=True)
+
+        alpha = v / np.sqrt(n)
+
+        self.coeff = alpha
+        self.Xm = Xm
+        self.indices = idx
+
+    def predict(self, X_test):
+        if self.coeff is None:
+            raise RuntimeError("Call fit() before predict().")
+
+        K_test_m = rbf_kernel(X_test, self.Xm, self.sigma)
+        return K_test_m @ self.coeff
 
 
 class FalkonSolverGPU:
@@ -163,13 +183,17 @@ class FalkonSolverGPU:
         self.options = falkon.FalkonOptions(keops_active="no")
         self.kernel = falkon.kernels.GaussianKernel(sigma=sigma, opt=self.options)
         self.lam = lam
-    def __call__(self,X,y,m):
-        self.flk = falkon.Falkon(kernel=self.kernel, penalty=self.lam, M=m, options=self.options)
-        self.flk.fit(X,y)
-    def predict(self,X):
+
+    def fit(self, X, y, m):
+        self.flk = falkon.Falkon(
+            kernel=self.kernel, penalty=self.lam, M=m, options=self.options
+        )
+        self.flk.fit(X, y)
+
+    def predict(self, X):
         with torch.no_grad():
             return self.flk.predict(X).flatten()
-        
+
 
 class SVGPSolverGPyTorch:
     """
@@ -222,8 +246,7 @@ class SVGPSolverGPyTorch:
             covar_x = self.covar_module(x)
             return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
-    # ---- Training call (same interface as FalkonSolverGPU) ----
-    def __call__(self, X, y, m):
+    def fit(self, X, y, m):
         X = X.to(self.device).float()
         y = y.to(self.device).float()
 
@@ -249,13 +272,9 @@ class SVGPSolverGPyTorch:
 
         # --- split parameters for optimizers ---
         variational_params = list(self.model.variational_parameters())
-        hyperparams = (
-            [
-                p for name, p in self.model.named_parameters()
-                if "variational" not in name
-            ]
-            + list(self.likelihood.parameters())
-        )
+        hyperparams = [
+            p for name, p in self.model.named_parameters() if "variational" not in name
+        ] + list(self.likelihood.parameters())
 
         nat_opt = gpytorch.optim.NGD(
             variational_params,
