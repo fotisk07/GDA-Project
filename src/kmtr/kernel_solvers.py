@@ -2,11 +2,7 @@ import gpytorch
 import numpy as np
 import torch
 from scipy.linalg import solve_triangular
-
-try:
-    import falkon
-except:
-    print("Falkon library not imported, you are not on GPU")
+import falkon
 
 
 def rbf_kernel(X1, X2, sigma=0.6):
@@ -185,12 +181,19 @@ class FalkonSolverGPU:
         self.lam = lam
 
     def fit(self, X, y, m):
+        if not isinstance(X, torch.Tensor):
+            X = torch.tensor(X, dtype=torch.float64)
+        if not isinstance(y, torch.Tensor):
+            y = torch.tensor(y, dtype=torch.float64)
+
         self.flk = falkon.Falkon(
             kernel=self.kernel, penalty=self.lam, M=m, options=self.options
         )
         self.flk.fit(X, y)
 
     def predict(self, X):
+        if not isinstance(X, torch.Tensor):
+            X = torch.tensor(X, dtype=torch.float64)
         with torch.no_grad():
             return self.flk.predict(X).flatten()
 
@@ -308,3 +311,10 @@ class SVGPSolverGPyTorch:
         X = X.to(self.device).float()
         preds = self.likelihood(self.model(X))
         return preds.mean.cpu().flatten()
+
+
+SOLVERS = {
+    "Nystrom": Nystrom,
+    "Falkon": Falkon,
+    "FalkonGPU": FalkonSolverGPU,
+}

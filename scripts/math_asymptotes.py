@@ -1,5 +1,5 @@
 import numpy as np
-from kernel_solvers import rbf_kernel
+from src.kernel_solvers import rbf_kernel
 import pandas as pd
 
 

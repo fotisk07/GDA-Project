@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: KMTR
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: falkon
+Requires-Dist: gpytorch>=1.13
+Requires-Dist: h5py>=3.14.0
+Requires-Dist: ipykernel>=6.31.0
+Requires-Dist: matplotlib>=3.9.4
+Requires-Dist: numpy>=2.0.2
+Requires-Dist: scikit-learn>=1.6.1
+Requires-Dist: scipy>=1.13.1
+Requires-Dist: seaborn>=0.13.2
+Requires-Dist: setuptools>=80.9.0
+Requires-Dist: torch==2.4.0
+Requires-Dist: tqdm>=4.67.1

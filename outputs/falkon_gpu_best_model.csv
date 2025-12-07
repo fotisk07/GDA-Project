@@ -1,0 +1,2 @@
+sigma,lambda,m,train_time_s,test_error,final_test_error,final_train_time_s
+50.0,1e-10,15000.0,80.13438415527344,15.044970776255337,14.04070281166682,79.15419149398804
