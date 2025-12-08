@@ -182,9 +182,9 @@ class FalkonSolverGPU:
 
     def fit(self, X, y, m):
         if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, dtype=torch.float64)
+            X = torch.tensor(X, dtype=torch.float32)
         if not isinstance(y, torch.Tensor):
-            y = torch.tensor(y, dtype=torch.float64)
+            y = torch.tensor(y, dtype=torch.float32)
 
         self.flk = falkon.Falkon(
             kernel=self.kernel, penalty=self.lam, M=m, options=self.options
@@ -193,7 +193,7 @@ class FalkonSolverGPU:
 
     def predict(self, X):
         if not isinstance(X, torch.Tensor):
-            X = torch.tensor(X, dtype=torch.float64)
+            X = torch.tensor(X, dtype=torch.float32)
         with torch.no_grad():
             return self.flk.predict(X).flatten()
 

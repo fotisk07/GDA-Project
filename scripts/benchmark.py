@@ -24,7 +24,7 @@ def parse_args():
     parser.add_argument("--sigma", type=float, default=7.0, help="Kernel bandwidth")
 
     parser.add_argument(
-        "--lam", type=float, default=2e-6, help="Regularization parameter λ"
+        "--lam", type=float, default=2e-6, help="Regularization parameter"
     )
 
     parser.add_argument(
@@ -92,6 +92,7 @@ def main():
     print("Loading data...")
     X_tr, y_tr, X_te, y_te = dataset_fn()
 
+    print("Starting run...")
     res = run(model, m, metric_fn, X_tr, y_tr, X_te, y_te)
 
     df = pd.DataFrame([res])
