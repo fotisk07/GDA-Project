@@ -1,31 +1,0 @@
-warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
-Loading data...
-
-Grid size = 1 settings
-
-=== Starting Falkon GPU Grid Search ===
-  0%|          | 0/1 [00:00<?, ?it/s]
-  0%|          | 0/1 [00:00<?, ?it/s][A
-100%|██████████| 1/1 [01:20<00:00, 80.27s/it][A100%|██████████| 1/1 [01:20<00:00, 80.27s/it]
-100%|██████████| 1/1 [01:20<00:00, 80.27s/it]100%|██████████| 1/1 [01:20<00:00, 80.27s/it]
-
-Trial 1/1
-Params: sigma=50, lambda=1e-10, m=15000
-  train=80.13s | test_err=15.04497
-
-=== Best parameters ===
-sigma           5.000000e+01
-lambda          1.000000e-10
-m               1.500000e+04
-train_time_s    8.013438e+01
-test_error      1.504497e+01
-Name: 0, dtype: float64
-
-=== Training final model ===
-
-Final test error: 14.04070
-Final training time: 79.15s
-
-Saved:
-  - falkon_gpu_grid_results.csv
-  - outputs/falkon_gpu_best_model.csv
