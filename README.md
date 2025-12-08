@@ -37,26 +37,28 @@ This codebase is designed to be used with **[uv](https://docs.astral.sh/uv/getti
 
 ## Repository Structure
 
-```text
 .
+├── data/
+│   ├── download.sh        – Dataset download helper (YearPredictionMSD / HIGGS)
+│   ├── higgs.py           – Convert raw HIGGS CSV → clean parquet
+│   └── make_mini_higgs.py – Create balanced mini-HIGGS parquet subset
+│
 ├── scripts/
-│ ├── benchmark.py – CLI benchmark runner (dataset × solver)
-│ ├── benchmark_logm.py – Benchmark over logarithmic ranges of m (for scaling curves)
-│ ├── approximation_benchmark.py – Nyström approximation accuracy experiments
-│ ├── condition_benchmark.py – Conditioning of the Nyström linear system
-│ ├── math_asymptotes.py – Theoretical asymptotic slope visualisations
-│ └── time_benchmarking.py – Runtime scaling benchmarks of different solvers
+│   ├── benchmark.py – CLI benchmark runner (dataset × solver)
+│   ├── benchmark_logm.py – Benchmark over logarithmic ranges of m (for scaling curves)
+│   ├── math_asymptotes.py – Theoretical asymptotic slope visualisations
+│   └── time_benchmarking.py – Runtime scaling benchmarks of different solvers
 │
 ├── src/
-│ └── kmtr/
-│ ├── datasets_and_metrics.py – Loaders for datasets (MDS, HIGGS, mini_Higgs) and evaluation metrics
-│ └── kernel_solvers.py – Implementations of KRR variants: Vanilla, Nyström, Falkon (CPU/GPU), SVGP
+│   └── kmtr/
+│       ├── datasets_and_metrics.py – Loaders for datasets (MDS, HIGGS, mini_Higgs) and metrics
+│       └── kernel_solvers.py – Implementations of KRR variants
 │
 ├── notebooks/ – Exploratory and report notebooks
 ├── outputs/ – CSV benchmark results
 ├── figures/ – Generated figures
+├── report/  – Our report 
 └── pyproject.toml – Project configuration
-```
 
 ### Usage
 
@@ -95,5 +97,37 @@ Notebooks are mostly self-contained and demonstrate usage of the implemented
 solvers and datasets. Some notebooks optionally reuse CSV results generated
 by the benchmark scripts.
 
-## Extra
+## Data
+
+The project uses two main datasets from the UCI repository:
+
+- **YearPredictionMSD** (regression)
+- **HIGGS** (binary classification)
+
+Download and preprocessing scripts are located in `data/`.
+
+### Download datasets
+
+To download the raw datasets:
+
+```bash
+cd data
+./download.sh yearpred   # only YearPredictionMSD
+./download.sh higgs      # only HIGGS
+./download.sh all        # both datasets
+
+### HIGGS Data
+
+The raw HIGGS dataset is expected as a CSV file at:
+- `data/HIGGS.csv`
+You can convert it to a clean parquet file used by the code with:
+```bash
+python data/higgs.py
+```
+This creates ```data/higgs.parquet```
+
+For faster experiments you can create a smaller balanced subset of HIGGS : 
+```uv data/mini_hiigs.py size```
+
+## Ouputs
 Some ready-made data are included in the outputs folder.
