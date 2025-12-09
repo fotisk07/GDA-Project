@@ -36,3 +36,4 @@ Pour jeudi
 - expliquer le ratio ds 
 - corriger l'erreur de notaton cholesky
 - insister dans la partie méthode sur les choses claires plutôt que celles des choses pas claires | peut être réexpliquer plus en détails le chunking | expliquer les figures, pas juste les mettres | passer un petit coup de ChatGPT de nouveau sur l'anglais | peut être enlever l'algo de Cholesky, en tout cas enlever la redondance avec les premières étapes 
+- rajouter l'opération par batch quand on a q,r et s
