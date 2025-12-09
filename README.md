@@ -37,6 +37,7 @@ This codebase is designed to be used with **[uv](https://docs.astral.sh/uv/getti
 
 ## Repository Structure
 
+```text
 .
 ├── data/
 │   ├── download.sh        – Dataset download helper (YearPredictionMSD / HIGGS)
@@ -59,6 +60,7 @@ This codebase is designed to be used with **[uv](https://docs.astral.sh/uv/getti
 ├── figures/ – Generated figures
 ├── report/  – Our report 
 └── pyproject.toml – Project configuration
+```
 
 ### Usage
 
