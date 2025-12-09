@@ -209,8 +209,8 @@ class SVGPSolverGPyTorch:
 
     def __init__(
         self,
-        num_iters=300,
-        lr=0.05,
+        num_iters=200,
+        lr=2e-2,
         use_cuda=True,
     ):
         self.num_iters = num_iters
@@ -250,6 +250,11 @@ class SVGPSolverGPyTorch:
             return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
     def fit(self, X, y, m):
+        if not isinstance(X, torch.Tensor):
+            X = torch.tensor(X, dtype=torch.float32)
+        if not isinstance(y, torch.Tensor):
+            y = torch.tensor(y, dtype=torch.float32)
+
         X = X.to(self.device).float()
         y = y.to(self.device).float()
 
@@ -308,6 +313,9 @@ class SVGPSolverGPyTorch:
     # ---- Prediction ----
     @torch.no_grad()
     def predict(self, X):
+        if not isinstance(X, torch.Tensor):
+            X = torch.tensor(X, dtype=torch.float32)
+
         X = X.to(self.device).float()
         preds = self.likelihood(self.model(X))
         return preds.mean.cpu().flatten()
@@ -317,4 +325,5 @@ SOLVERS = {
     "Nystrom": Nystrom,
     "Falkon": Falkon,
     "FalkonGPU": FalkonSolverGPU,
+    "GPytorch": SVGPSolverGPyTorch,
 }

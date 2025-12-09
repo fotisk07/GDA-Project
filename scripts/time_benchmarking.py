@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 import pandas as pd
-from src.kernel_solvers import Falkon, Nystrom, VanillaKRR
+from kmtr.kernel_solvers import Falkon, Nystrom, VanillaKRR
 from tqdm import tqdm
 
 

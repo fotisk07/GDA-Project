@@ -75,7 +75,7 @@ def one_minus_auc(y_pred, y_true):
 
 
 BENCHMARKS = {
-    "MDS": (MDS, relative_error),
+    "MSD": (MDS, relative_error),
     "HIGGS": (Higgs, one_minus_auc),
     "mini_Higgs": (mini_higgs, one_minus_auc),
 }

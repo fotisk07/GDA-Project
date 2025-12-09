@@ -24,6 +24,7 @@ def parse_args():
     )
     parser.add_argument("--sigma", type=float, default=7.0)
     parser.add_argument("--lam", type=float, default=2e-6)
+    parser.add_argument("--num", type=int, default=10)
 
     parser.add_argument(
         "--output",
@@ -66,6 +67,7 @@ def main():
     model_name = args.model
     sigma = args.sigma
     lam = args.lam
+    n_points = args.num
 
     # ------------------------------------------------
     # Log-scale sweep of m
@@ -77,7 +79,7 @@ def main():
         np.logspace(
             np.log10(m_start),
             np.log10(m_stop),
-            num=10,
+            num=n_points,
             dtype=int,
         )
     )
@@ -97,6 +99,10 @@ def main():
     )
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    # Always reset the file at start
+    pd.DataFrame(columns=["m", "train_s", "predict_s", "total_s", "rel_err"]).to_csv(
+        output_path, index=False
+    )
 
     # Write CSV header once if file doesn't exist
     if not os.path.exists(output_path):
@@ -117,7 +123,11 @@ def main():
         print(f"\n=== Running m = {m} ===")
 
         try:
-            model = SOLVERS[model_name](sigma, lam)
+            model = (
+                SOLVERS[model_name](sigma, lam)
+                if model_name != "GPytorch"
+                else SOLVERS[model_name]()
+            )
             res = run(model, m, metric_fn, X_tr, y_tr, X_te, y_te)
 
             # Append result immediately

@@ -77,7 +77,11 @@ def main():
     metric_fn = BENCHMARKS[dataset_name][1]
 
     # Build model
-    model = SOLVERS[model_name](sigma, lam)
+    model = (
+        SOLVERS[model_name](sigma, lam)
+        if model_name != "GPytorch"
+        else SOLVERS[model_name]()
+    )
 
     # Output path
     output_path = (

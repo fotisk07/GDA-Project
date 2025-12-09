@@ -1,0 +1,36 @@
+#!/bin/bash
+#SBATCH --job-name=HIGGS
+#SBATCH --output=logs/FalkonGPU.out
+#SBATCH --error=logs/FalkonGPU.out
+#SBATCH --partition=prod20
+#SBATCH --gres=gpu:2g.20gb:1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --time=08:00:00
+
+
+# ##### MSD ######
+# uv run python -u scripts/benchmark_logm.py \
+#   --dataset MSD \
+#   --model FalkonGPU \
+#   --sigma 7 \
+#   --lam 1e-8 \
+#   --m_stop 50000 \
+#   --num 20
+
+
+##### Mini Higgs ####
+uv run python -u scripts/benchmark_logm.py \
+  --dataset mini_Higgs \
+  --model FalkonGPU \
+  --sigma 3.8 \
+  --lam 3e-8 \
+  --m_stop 90000 
+
+# #### Higgs ####
+# uv run python -u scripts/benchmark_logm.py \
+#   --dataset HIGGS \
+#   --model FalkonGPU \
+#   --sigma 3.8 \
+#   --lam 3e-8 \
+#   --m_stop 90000 

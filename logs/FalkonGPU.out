@@ -1,0 +1,33 @@
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Loading data...
+
+=== Running m = 100 ===
+m=   100 | train 2.71s | predict 0.01s | err 0.31877
+Saved result for m=100
+
+=== Running m = 212 ===
+m=   212 | train 1.10s | predict 0.02s | err 0.30688
+Saved result for m=212
+
+=== Running m = 453 ===
+m=   453 | train 0.33s | predict 0.04s | err 0.28035
+Saved result for m=453
+
+=== Running m = 965 ===
+m=   965 | train 0.48s | predict 0.00s | err 0.26508
+Saved result for m=965
+
+=== Running m = 2055 ===
+m=  2055 | train 1.03s | predict 0.01s | err 0.25130
+Saved result for m=2055
+
+=== Running m = 4377 ===
+m=  4377 | train 3.24s | predict 0.01s | err 0.24844
+Saved result for m=4377
+
+=== Running m = 9321 ===
+m=  9321 | train 16.29s | predict 0.03s | err 0.25109
+Saved result for m=9321
+
+=== Running m = 19849 ===
+slurmstepd: error: Detected 1 oom-kill event(s) in StepId=25908.batch. Some of your processes may have been killed by the cgroup out-of-memory handler.

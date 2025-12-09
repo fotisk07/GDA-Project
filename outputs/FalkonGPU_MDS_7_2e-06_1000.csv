@@ -1,2 +1,0 @@
-,train_s,predict_s,total_s,rel_err
-0,10.008558988571167,0.04457712173461914,10.053136110305786,"tensor(0.0993, dtype=torch.float64)"

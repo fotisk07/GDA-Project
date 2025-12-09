@@ -1,0 +1,32 @@
+#!/bin/bash
+#SBATCH --job-name=HIGGS
+#SBATCH --output=logs/GPytorch.out
+#SBATCH --error=logs/GPytorch.out
+#SBATCH --partition=prod20
+#SBATCH --gres=gpu:2g.20gb:1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --time=08:00:00
+
+
+##### MSD ######
+# uv run python -u scripts/benchmark_logm.py \
+#   --dataset MDS \
+#   --model GPytorch \
+#   --num 20 \
+#   --m_stop 90000 
+
+
+##### Mini Higgs ####
+# uv run python -u scripts/benchmark_logm.py \
+#   --dataset mini_Higgs \
+#   --model GPytorch \
+#   --num 20 \
+#   --m_stop 1000 
+
+#### Higgs ####
+uv run python -u scripts/benchmark_logm.py \
+  --dataset HIGGS \
+  --model GPytorch \
+  --num 20 \
+  --m_stop 10000 
