@@ -1,0 +1,7 @@
+\section{Conclusion}
+
+This study reviewed and experimentally examined the \Falkon framework for large-scale kernel learning. By combining Nyström approximations with preconditioned conjugate gradient solvers, \Falkon reduces the effective complexity of kernel ridge regression to \(O(n^{3/2}\log n)\), a result supported by our empirical scaling analyses. Our experiments confirmed the substantial performance gap between vanilla solvers, standard Nyström methods, and \Falkon, while also illustrating the importance of GPU-oriented system optimizations for achieving practical speedups.
+
+Despite these advances, our results highlight a key remaining limitation: even with \Falkon’s optimizations, large-scale kernel methods still require significant memory resources to be practical, particularly for storing intermediate kernel blocks and preconditioners. This constraint limits their accessibility compared to more lightweight deep learning or linear approaches.
+
+Overall, \Falkon demonstrates that kernel methods can be pushed far beyond their traditional scalability limits, but memory requirements remain a central challenge for broader adoption.

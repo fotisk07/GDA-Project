@@ -1,0 +1,102 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{5}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{}, \showDOI{}, and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showDOI}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showDOI #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showDOI      \undefined \def \showDOI       #1{#1}\fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[Bertin-Mahieux(2011)]%
+        {year_prediction_msd_203}
+\bibfield{author}{\bibinfo{person}{T. Bertin-Mahieux}.}
+  \bibinfo{year}{2011}\natexlab{}.
+\newblock \bibinfo{title}{{Year Prediction MSD}}.
+\newblock \bibinfo{howpublished}{UCI Machine Learning Repository}.
+\newblock
+\newblock
+\shownote{{DOI}: https://doi.org/10.24432/C50K61}.
+
+
+\bibitem[Gardner et~al\mbox{.}(2018)]%
+        {gardner2018gpytorch}
+\bibfield{author}{\bibinfo{person}{Jacob~R Gardner}, \bibinfo{person}{Geoff
+  Pleiss}, \bibinfo{person}{David Bindel}, \bibinfo{person}{Kilian~Q
+  Weinberger}, {and} \bibinfo{person}{Andrew~Gordon Wilson}.}
+  \bibinfo{year}{2018}\natexlab{}.
+\newblock \showarticletitle{GPyTorch: Blackbox Matrix-Matrix Gaussian Process
+  Inference with GPU Acceleration}. In \bibinfo{booktitle}{\emph{Advances in
+  Neural Information Processing Systems}}.
+\newblock
+
+
+\bibitem[Meanti et~al\mbox{.}(2020)]%
+        {falkonlibrary2020}
+\bibfield{author}{\bibinfo{person}{Giacomo Meanti}, \bibinfo{person}{Luigi
+  Carratino}, \bibinfo{person}{Lorenzo Rosasco}, {and}
+  \bibinfo{person}{Alessandro Rudi}.} \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Kernel methods through the roof: handling billions
+  of points efficiently}. In \bibinfo{booktitle}{\emph{Advances in Neural
+  Information Processing Systems 32}}.
+\newblock
+
+
+\bibitem[Rudi et~al\mbox{.}(2016)]%
+        {rudi2016morenystromcomputationalregularization}
+\bibfield{author}{\bibinfo{person}{Alessandro Rudi}, \bibinfo{person}{Raffaello
+  Camoriano}, {and} \bibinfo{person}{Lorenzo Rosasco}.}
+  \bibinfo{year}{2016}\natexlab{}.
+\newblock \bibinfo{title}{Less is More: Nystr\"om Computational
+  Regularization}.
+\newblock
+\newblock
+\showeprint[arxiv]{1507.04717}~[stat.ML]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/1507.04717}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Shalev-Shwartz and Ben-David(2014)]%
+        {10.5555/2621980}
+\bibfield{author}{\bibinfo{person}{Shai Shalev-Shwartz} {and}
+  \bibinfo{person}{Shai Ben-David}.} \bibinfo{year}{2014}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Understanding Machine Learning: From Theory
+  to Algorithms}}.
+\newblock \bibinfo{publisher}{Cambridge University Press},
+  \bibinfo{address}{USA}.
+\newblock
+\showISBNx{1107057132}
+
+
+\end{thebibliography}

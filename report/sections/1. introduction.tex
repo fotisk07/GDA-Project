@@ -1,0 +1,8 @@
+% \usepackage{xspace}
+% \newcommand{\Falkon}{\textsc{Falkon}\xspace}
+
+\section{Introduction}
+
+Kernel methods offer a principled and statistically well-understood framework for non-linear learning, but their applicability to large-scale problems is severely limited by the quadratic memory and cubic time complexity induced by the kernel matrix. The recently proposed \Falkon algorithm introduces a combination of Nyström approximation, preconditioning, iterative solvers, and GPU-centric system design to enable kernel methods to scale to datasets containing millions to billions of samples.
+
+In this review, we first present the mathematical background underlying supervised learning with kernels and the Nyström approximation, highlighting the tension between statistical optimality and computational feasibility. We then detail the \Falkon algorithm and its GPU implementation strategies, with particular emphasis on memory management, out-of-core computation, and multi-GPU parallelism. Finally, we reproduce selected experiments from the original paper and conduct additional benchmarks to empirically validate the predicted scaling laws and performance gains.

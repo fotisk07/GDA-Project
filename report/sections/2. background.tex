@@ -1,0 +1,359 @@
+\section{Background}
+\subsection{Supervised Learning and Kernel Methods}
+
+In supervised learning, one seeks to learn a predictor $f:\mathcal X\to\mathcal Y$ from i.i.d.\ samples $(x_i,y_i)_{i=1}^n \sim \rho$ by minimizing the expected risk
+\[
+L(f) = \int \ell(f(x), y)\, d\rho(x,y),
+\]
+which in practice is replaced by the empirical risk
+\[
+\hat f = \arg\min_f \frac{1}{n} \sum_{i=1}^n \ell(f(x_i), y_i).
+\]
+
+Linear models $f(x)=w^\top x$ are efficient but limited in expressivity. Kernel methods overcome this by implicitly mapping inputs into a high-dimensional feature space via $\Phi(x)$ and considering predictors of the form $f(x)=w^\top \Phi(x)$. This defines a reproducing kernel Hilbert space (RKHS) $\mathcal H$ with kernel
+\[
+k(x,x')=\langle \Phi(x),\Phi(x')\rangle.
+\]
+Learning is typically posed as regularized Empirical Risk Minimization (ERM),
+\[
+\hat f_\lambda=\arg\min_{f\in\mathcal H}
+\frac{1}{n}\sum_{i=1}^n \ell(f(x_i),y_i)
++\lambda\|f\|_{\mathcal H}^2,
+\]
+whose solution, by the representer theorem, admits the finite expansion
+\[
+\hat f(x)=\sum_{i=1}^n \alpha_i k(x,x_i).
+\]
+
+This formulation enables flexible nonlinear modeling with strong statistical guarantees, as illustrated by the Kernel Ridge Regression examples in Fig.~\ref{fig:KRR_example}, where the same kernel model successfully fits both smooth global structure and localized nonlinear targets without prior assumptions. However, this representation requires forming and factorizing the full kernel matrix $K_{nn}$, inducing $\mathcal O(n^2)$ memory and $\mathcal O(n^3)$ time complexity. As a result, standard kernel solvers become impractical at large scale, motivating the approximate methods studied in this work.
+
+\begin{figure}[h] 
+\centering 
+\includegraphics[width=\linewidth]{../figures/KRR_example.png} 
+\caption{Kernel Ridge Regression applied to $f(x)=\sin(x)$ (left) and to a localized nonlinear target $f(x)=e^{-(x-2)^2}-0.8\,e^{-(x+2+\sin(2x))^2}$ (right) using a Gaussian Kernel} 
+\label{fig:KRR_example} 
+\end{figure}
+\subsection{Statistical Guarantees vs Computational Bottlenecks}
+
+Kernel methods enjoy strong theoretical properties. Under mild regularity assumptions and with regularization parameter $\lambda = O(n^{-1/2})$, solutions of the regularized ERM problem achieve the learning rate \cite{10.5555/2621980}
+\begin{equation}\label{eq:LR}
+    L(\hat f_\lambda) - \inf_{f \in \mathcal H} L(f)=O(n^{-1/2}),
+\end{equation}
+
+which is known to be optimal for a large class of problems. This statistical efficiency is one of the main reasons for the sustained interest in kernel-based learning.
+
+However, the practical deployment of kernel methods is severely limited by their computational cost. In order to make the computational bottleneck explicit, we consider the squared loss case, which corresponds to kernel ridge regression (KRR).  The regularized ERM problem becomes
+\[
+\hat f =
+\arg\min_{f \in \mathcal H}
+\frac{1}{n} \sum_{i=1}^n (f(x_i)-y_i)^2
++
+\lambda \|f\|_{\mathcal H}^2.
+\]
+
+The representer theorem reduces the optimization problem to estimating the coefficient vector
+$\alpha \in \mathbb R^n$.
+Plugging this form into the objective yields the quadratic optimization problem
+\[
+\min_\alpha
+\frac{1}{n}
+\|K_{nn}\alpha - y\|^2
++
+\lambda \alpha^\top K_{nn} \alpha,
+\]
+where $K_{nn}$ is the kernel matrix with entries $[K_{nn}]_{ij} = k(x_i,x_j)$.
+
+Setting the derivative with respect to $\alpha$ to zero leads to the linear system
+\begin{equation} \label{Vanilla KRR}
+(K_{nn} + \lambda n I_n)\alpha = y,
+\end{equation}
+whose solution fully determines the learned function as the initial optimisation problem is convex.
+
+Solving this system directly requires storing the full kernel matrix and performing matrix inversion or Cholesky factorization. This leads to a computational complexity of $O(n^3)$ in time and $O(n^2)$ in memory, which becomes intractable as soon as $n$ reaches the order of $10^5$ samples. Even when exploiting modern GPUs, memory limitations and data transfers quickly become bottlenecks.
+
+We confirmed these scaling limitations empirically through timing benchmarks of the vanilla kernel solver (Fig \ref{fig:scalling Vanilla KRR}). 
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{../figures/vanilla_scalling.png}
+    \caption{Vanilla KRR Scaling Law on $sin$ function}
+    \label{fig:scalling Vanilla KRR}
+\end{figure}
+In the region before $5\times10^2$ points, Python overhead dominates, so the scaling is noisy and inconclusive. However, after $10^3$ points, we can clearly see a scaling trend around $n^3$. Pushing the benchmarking in the region of $10^5$ points is impossible as saving the $K$ matrix for $10^5$ would require approximately 80GB in float32, demonstrating the failure of kernels method to handle very large datasets.
+This gap between statistical optimality and computational feasibility motivates the use of approximate kernel methods, designed to reduce memory requirements and computational complexity while preserving learning guarantees. Among these methods, the \emph{Nyström} approximation plays a central role and forms the basis of the scalable solver studied in this work.
+
+\subsection{Nyström Approximation and Reduced Kernel Solvers} \label{seq:Nystrom}
+
+To alleviate the computational bottleneck of full kernel solvers, approximate methods based on subsampling have been developed. Among them, the Nyström approximation is one of the most widely used and theoretically well-founded approaches.
+
+The central idea is to restrict the kernel expansion to a subset of $m \ll n$ inducing points
+$\{\tilde x_1,\dots,\tilde x_m\} \subset \{x_1,\dots,x_n\}$ sampled from the training set. The predictor is then approximated by
+\[
+f(x) = \sum_{j=1}^m \alpha_j k(x,\tilde x_j),
+\]
+leading to a reduced-dimensional parameter vector $\alpha \in \mathbb R^m$ instead of $\mathbb R^n$.
+
+Denoting by $K_{nm} \in \mathbb R^{n \times m}$ the cross-kernel matrix between training samples and inducing points and by $K_{mm} \in \mathbb R^{m \times m}$ the kernel matrix of the inducing points, the kernel ridge regression problem becomes
+\begin{equation} \label{eq:nys}
+(K_{nm}^\top K_{nm} + \lambda n K_{mm}) \alpha
+=
+K_{nm}^\top y.
+\end{equation}
+
+An example of KRR using Equation \ref{eq:nys} is given in Figure \ref{fig:Nystrom toy}. 
+
+This reformulation reduces computational requirements. Directly solving the reduced system costs $O(n m^2 + m^3)$ in time and $O(m^2)$ in memory (by computing $K_{nm}$ in blocks). Crucially, recent theoretical results \cite{rudi2016morenystromcomputationalregularization} show that optimal statistical learning rates can still be achieved with as few as
+\[
+m = O(\sqrt n)
+\]
+inducing points, preserving the $O(n^{-1/2})$ excess risk bound while drastically lowering computational complexity.
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{../figures/nystrom_toy.png}
+    \caption{KRR with Nyström Approximation using 50 points out of 1000 total}
+    \label{fig:Nystrom toy}
+\end{figure}
+
+
+Nevertheless, for large-scale settings even this reduced problem remains challenging, as the linear system size and the cost of matrix operations may still be significant for $m$ in the thousands or tens of thousands. This motivates the use of iterative solvers combined with effective preconditioning schemes to further improve scalability, leading to the \Falkon algorithm described in the next section.
+
+\subsection{Iterative Solvers and conditioning}
+One could try to solve Eq.~\eqref{eq:nys} by inverting the matrix $K_{nm}^\top K_{nm} + \lambda n K_{mm}$. However since $m$ can be quite large, storing the matrix and it is inverse in memory will be impossible. In addition, directly inverting this matrix can be unstable. This naturally leads us to consider iterative methods and to condition the matrix so that convergence will be quicker.
+
+To that end, a natural choice is to employ the conjugate gradient (CG) algorithm. However, the convergence rate of CG depends critically on the condition number of the matrix to be solved. In kernel problems, the matrices involved are often poorly conditioned (see Fig \ref{fig:conditioning}), which results in slow convergence and defeats the computational advantages offered by iterative solvers. This issue motivates the use of preconditioning.
+
+By setting $H = K_{nm}^\top K_{nm} + \lambda n K_{mm}$ and $b=K_{nm}^Ty$, Eq~\ref{eq:nys} becomes
+\begin{equation}\label{eq:system}
+    H\alpha = b
+\end{equation}
+Setting $\alpha = P\beta$ and multiplying by $P^T$ we get 
+\begin{equation}\label{eq:conditioned system}
+    P^THP\beta = P^Tb
+\end{equation}
+
+In the ideal case we would have $P^THP=I$ and then the system would converge in one iteration since $\beta=P^Tb$. In that case 
+\[H = P^{-T}P^{-1}\]
+Hence
+\[H^{-1} = PP^T\]
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{../figures/conditioning.png}
+    \caption{Evolution of condition number of $K_{nm}^\top K_{nm} + \lambda n K_{mm}$}
+    \label{fig:conditioning}
+\end{figure}
+But finding $PP^T = H^{-1}$ is as expensive as solving the system directly. We approximate $P$ by $\tilde{P}$ such that
+\begin{equation} \label{eq: P definition}
+    \tilde{P}\tilde{P}^T =  (\frac{m}{m}K_{nm}^2 + \lambda n K_{mm})^{-1}
+\end{equation}
+using the approximation $K_{nm}^\top K_{nm} \approx \frac{n}{m}K_{mm}^2$ 
+This follows from a Monte-Carlo Nyström argument: writing
+\(
+K_{nm}^\top K_{nm}=\sum_{i=1}^n r_i^\top r_i
+\),
+with \(r_i\) the rows of \(K_{nm}\), and noting that
+\(
+K_{mm}^2=\sum_{j=1}^m r_{s_j}^\top r_{s_j}
+\)
+is the same sum restricted to the Nyström subset \(\{s_j\}_{j=1}^m\), uniformly sampled from
+\(\{1,\dots,n\}\).
+By linearity of expectation,
+\[
+\mathbb E[K_{mm}^2]
+=
+\frac{m}{n} \sum_{i=1}^n r_i^\top r_i
+=
+\frac{m}{n} K_{nm}^\top K_{nm},
+\]
+so that \(\frac{n}{m}K_{mm}^2\) is an unbiased estimator of
+\(K_{nm}^\top K_{nm}\)
+
+
+Thus, $\tilde{P}$ is such that $\tilde{P}^TH\tilde{P}=I$ and the system
+\begin{equation}\label{eq:approximate conditioned system}
+\tilde{P}^TH\tilde{P}\beta=\tilde{P}^Tb
+\end{equation}
+is almost perfectly conditioned. The conjugate gradient converges in 
+\begin{equation*}
+    T = O(\sqrt{\kappa(\tilde{P}^TH\tilde{P})log\left(\frac{1}{\epsilon}\right)}
+\end{equation*}
+
+In our case we have $\kappa\left(\tilde{P}^TH\tilde{P}\right)\approx1$ and $\epsilon = O\left(n^{-\frac{1}{2}}\right)$ following Eq.~(\ref{eq:LR}) hence (CG) converges in a number of steps $T$: 
+\[T = O(\log{n})\]
+
+
+
+\subsection{The Falkon Algorithm} \label{seq:Falkon}
+
+
+To recapitulate in order to solve Eq~\ref{eq:nys}
+\begin{equation*} 
+(K_{nm}^\top K_{nm} + \lambda n K_{mm}) \alpha
+=
+K_{nm}^\top y \\
+H\alpha = b
+\end{equation*}
+We introduce the condition matrix that satisfies Eq~\ref{eq: P definition}
+\[\tilde{P}\tilde{P}^T =  (\frac{n}{m}K_{nm}^2 + \lambda n K_{mm})^{-1}\]
+and we solve
+\begin{equation*}
+    \tilde{P}^TH\tilde{P}\beta = \tilde{P}^Tb
+\end{equation*}
+Using the Conjugate Gradient method. Once we have $\beta$ we solve for $\alpha$ simply by
+\begin{equation}\label{eq:final sol}
+    \alpha = \tilde{P}\beta
+\end{equation}
+
+Let's now focus on the practical side of this calculation. 
+
+Using Cholesky factorization, we can find matrices $T$ and $A$ such that
+\[
+K_{mm} = T^\top T \qquad\text{and}\qquad
+\frac{1}{m} T T^\top + \lambda I = A^\top A .
+\]
+Hence
+\begin{equation*}\label{eq:P}
+\begin{split}
+    (\tilde{P}^T\tilde{P})^{-1} &= \frac{n}{m}K_{mm}^2 + \lambda n K_{mm} \\
+                &= nT^T \left(\frac{1}{m}TT^T+\lambda I\right)T \\
+                &= n\left(T^TA^T\right)\left(AT\right)
+\end{split}
+\end{equation*}
+
+It follows,
+\begin{equation}
+    P = \dfrac{1}{\sqrt{n}}T^{-1}A^{-1}
+\end{equation}
+
+Each iteration of CG requires evaluating the operator
+\begin{equation} `\label{eq: conjugate gradient}
+\begin{split}
+v 
+&\mapsto \tilde P^T H \tilde P v \\[4pt]
+&= \frac{1}{\sqrt n}
+A^{-T} T^{-T}
+\left( K_{nm}^\top K_{nm} + \lambda n K_{mm} \right)
+\frac{1}{\sqrt n} T^{-1} A^{-1} v \\[4pt]
+&= 
+\frac{1}{n}
+A^{-\top} T^{-\top}
+K_{mn} K_{nm}
+T^{-1} A^{-1} v
+\;+\;
+\lambda A^{-\top} A^{-1} v .
+\end{split}
+\end{equation}
+
+This operation can be decomposed into the following steps:
+
+\begin{enumerate}
+
+\item \textbf{Apply $A^{-1}$}
+\[
+v_1 = A^{-1} v.
+\]
+Solving the triangular system costs
+\[
+O(m^2).
+\]
+
+\item \textbf{Apply kernel blocks and $T^{-1}$}
+\[
+v_2 = k(X_m,X)\,k(X,X_m)\,T^{-1} v_1.
+\]
+This requires:
+\begin{itemize}
+    \item solving $T^{-1} v_1$ at cost $O(m^2)$,
+    \item one multiplication by $k(X,X_m)$ costing $O(nm)$,
+    \item one multiplication by $k(X_m,X)$ costing $O(nm)$.
+\end{itemize}
+The total cost of this step is therefore
+\[
+O(nm).
+\]
+
+\item \textbf{Apply $A^{-T}$ and $T^{-T}$ and add regularization}
+\[
+v_f = \frac{1}{n} A^{-T} T^{-T} v_2 + \lambda A^{-T} v_1 .
+\]
+These are triangular solves whose cost is
+\[
+O(m^2).
+\]
+
+\end{enumerate}
+
+Combining all operations, the cost of one CG iteration is
+
+\[
+O(nm + m^2).
+\]
+
+With the Nyström choice $ m = O(\sqrt n) $, we obtain
+
+\[
+\text{Cost per CG iteration} = O(n\sqrt{n}) .
+\]
+
+Since the preconditioned system has approximate condition number $1$, CG
+requires $O(\log n)$ iterations to reach statistical accuracy
+$\varepsilon = O(n^{-1/2})$. Therefore, the total runtime of \Falkon is
+
+\[O(n\sqrt{n} \log n)\]
+
+The memory footprint is dominated by storing the dataset and the matrices
+$K_{mm}$, $A$, and $T$, yielding
+\[O(n)\text{ memory}\]
+
+In order to get the final solution we simply use Eq~\ref{eq:final sol}
+\[\alpha = \frac{1}{\sqrt(n)}T^{-1}A^{-1}\beta\] and solve this system which has a cost of $O(m^2)$
+
+It is important to note that in this review we present the corrected version of the Algorithm 1 in \cite{falkonlibrary2020}, accounting for normalisation and proper scaling.
+In this section we only dealt with the KRR problem which admits analytical solutions, as in the original paper. It is also possible to extend these results to other loss functions. 
+
+
+\subsection{Reproduction of Theoretical Results and Algorithms}
+
+We implemented both the Nyström approximation and the FALKON algorithm in order to empirically validate the theoretical scaling laws, in the same spirit as the benchmark performed for vanilla KRR in Fig.~\ref{fig:scalling Vanilla KRR}. In the rest of this paper, we will cal our implementation of \Falkon \emph{FalkonCPU} and reserve the \Falkon name (sometimes also noted FalkonGPU) for the GPU accelerated version.
+
+\textbf{Nyström method.}
+The reproduction of the simple Nyström solver was straightforward. Our implementation follows directly the reduced system in Eq.~\ref{eq:nys} by explicitly forming the kernel blocks $K_{mm}$ and $K_{mn}$ and solving the resulting linear system. We used the numerical solver provided by numpy and did not encounter any numerical instability issues. 
+
+\textbf{FalkonCPU algorithm.}
+Reproducing \Falkon was substantially more challenging, as it required reimplementing a fully matrix–free preconditioned Conjugate Gradient (CG) solver tailored to the operator
+\[
+v \mapsto \tilde P^\top H \tilde P v .
+\]
+Practical difficulties arose from two main sources. First, the Cholesky factorization of $K_{mm}$ can fail due to finite-precision effects, since $K_{mm}$ is only guaranteed to be positive semidefinite. This issue was resolved by adding a small diagonal stabilization (“jitter”) term prior to factorization. Second, insufficient convergence of the CG procedure or an overly small Nyström rank $m$ led to oscillatory artifacts in the resulting regressors. Adopting the theoretical prescription $m = O(\sqrt n)$ and tightening the CG stopping criterion restored stable solutions that were consistent with the full KRR estimator.
+
+The full implementation used for our benchmarks is provided in \texttt{/scr/kmtr/kernel\_solvers}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{../figures/scale_laxws.png}
+    \caption{Runtime scaling of vanilla KRR, Nyström and FALKON solvers on CPU (log--log scale). Slopes are fitted for $n \ge 10^3$: }
+    \label{fig:runtime-scaling}
+\end{figure}
+
+\textbf{Benchmarking and empirical validation.}
+The runtime benchmarks obtained from our implementations are reported in Fig.~\ref{fig:runtime-scaling}, together with empirical scaling exponents fitted for dataset sizes $n \ge 10^3$, where timing noise and Python overhead become negligible. In this regime, the measured slopes are
+\[
+\alpha_{\text{vanilla}} \approx 2.93,
+\qquad
+\alpha_{\text{Nyström}} \approx 1.43,
+\qquad
+\alpha_{\text{FALKON}} \approx 1.42.
+\]
+
+These results are consistent with the theoretical complexity predictions. The vanilla KRR solver exhibits its expected cubic behavior. Classical Nyström (solving Eq.~\ref{eq:nys}) has theoretical complexity (see \ref{seq:Nystrom})
+\[
+O(nm^2 + m^3),
+\]
+which with the standard choice $m = O(\sqrt n)$ yields an overall quadratic rate \(O(n^2)\). However, for the dataset sizes accessible in our experiments, the dominant cost is the kernel block construction \(O(nm)\), leading to an apparent $O(n^{3/2})$ scaling in the measured runtimes. 
+
+The \Falkon algorithm has a total complexity of (see \ref{seq:Falkon})
+\[O(nm\log n) = O(n^{3/2}\log n),\]
+and the slowly varying logarithmic factor is not observable on a log--log fit over the limited experimental range, resulting in an effective slope close to \(3/2\).
+
+Although FalkonCPU exhibits the expected asymptotic behavior, it is not systematically faster than the simple Nyström solver in absolute runtime. This discrepancy is explained by constant-factor effects: our Python implementation relies on an explicit matrix–free Conjugate Gradient loop with repeated triangular solves and kernel matrix–vector products, whereas the Nyström solver reduces to a single dense system solve handled by highly optimized numpy solvers. 

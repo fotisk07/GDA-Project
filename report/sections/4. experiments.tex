@@ -1,0 +1,129 @@
+\section{Experimentation}
+\subsection{Practical details}
+
+Since \Falkon comes as a Python library we decided to reproduce some of their experiments and compare against other algorithms, as well as our own implementations. 
+
+\paragraph{Datasets}
+Experiments are conducted on the following public benchmarks:
+
+\begin{itemize}
+    \item \textbf{Year Prediction MSD (MSD)\cite{year_prediction_msd_203}}: Prediction of the release year of a song from audio features. A regression dataset containing approximately \( n \approx 5\times10^5 \) samples with \( d = 90 \) continuous features.
+    \item \textbf{Higgs\cite{higgs_280}}: a large-scale binary classification dataset with more than \( n \approx 10^7 \) samples and \( d = 28 \) features.
+    \item \textbf{Mini Higgs} : A sub-sampled version of Higgs with \( n \approx 10^5\) points
+\end{itemize}
+
+Each dataset is randomly split into training and test sets using fixed random seeds to ensure reproducibility. We adopt the same parameters as in the paper and choose $10$\% of MDS and $20$\% of Higgs as the test data.  
+
+For all experiments, input features are standardized independently per dataset using statistics computed from the training set.  
+Target values are left unscaled.  
+All models operate on the same normalized inputs to ensure fair comparison.
+
+\paragraph{Models}
+\begin{itemize}
+    \item \textbf{Falkon GPU}: official GPU implementation from the \texttt{falkon} library.
+    \item \textbf{Nyström}: standard kernel ridge regression with Nyström approximation.
+    \item \textbf{Falkon CPU (ours)}: our own implementation of the Falkon algorithm using conjugate gradient optimization.
+    \item \textbf{GPyTorch}\cite{gardner2018gpytorch} : We used the SVGP model with Gaussian and Bernoulli likelihoods.
+    \item \textbf{Linear Regression} : We use a simple Linear regression model as baseline.
+\end{itemize}
+
+All kernel models use a Gaussian RBF kernel
+\(
+k(x,x') = \exp\!\left(-\frac{\|x - x'\|^2}{2\sigma^2}\right)
+\),
+with common hyperparameters across methods whenever applicable.
+
+\paragraph{Compute}
+All experiments are performed on a DGX A100 machine with 40GB of VRAM. This is significantly less compute than \cite{falkonlibrary2020}, so we were not able to achieve the same performances. We can however reproduce the approximate scaling laws and approximate the final performances. For each dataset and model the best run was selected at the end
+
+\subsection{Results}
+
+\paragraph{Sanity Check}
+
+We first compared three approaches on the mini-HIGGS dataset: the reference implementation from the \Falkon library, a straightforward Nyström solver relying on NumPy linear algebra, and our own FalkonCPU implementation. As expected, the NumPy-based solver produced prediction accuracies comparable to the official \Falkon implementation, but exhibited significantly longer runtimes due to the absence of dedicated preconditioning and iterative solvers. Our custom CPU solver was both slower and less accurate than the two baselines, which can be attributed to inefficient memory handling, lack of optimized linear-algebra routines, and potential numerical inaccuracies in the implementation. Overall, this experiment confirms that our solver should be regarded as a proof-of-concept rather than a competitive baseline.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\hline
+\textbf{Method} & \textbf{1 - AUC} & \textbf{Runtime (s)} \\
+\hline
+Nystöm (NumPy) & $0.25$ &$25s$  \\
+FALKON (official) & $0.25$ & $6$ \\
+FALKON (ours, CPU) & $0.28$ & $60$ \\
+\hline
+\end{tabular}
+\caption{Sanity-check comparison on the \texttt{mini-HIGGS} dataset. $1-$AUC and total runtime are reported for each method.}
+\label{tab:sanity_mini_higgs}
+\end{table}
+
+\paragraph{Scaling Laws.}
+
+We attempted to reproduce the scaling curves reported in Fig.~1 of the original \Falkon paper, which relate predictive performance to training time for increasing numbers of Nyström centers~\(m\). In practice, several implementation and hardware limitations hindered a faithful reproduction: frequent memory errors, CUDA out-of-memory failures, unstable runtimes, and difficulties with parallelization on our available infrastructure. 
+
+Despite these constraints, we were able to reproduce representative performance trends for \Falkon on two datasets, HIGGS and MSD (Fig.~\ref{fig:scaling_laws_falkon}). As expected, increasing training time (through larger \(m\)) leads to a steady reduction of the error metric.
+
+To enable a direct comparison with another kernel-based method, we additionally replicated an experiment on Mini-HIGGS experiment (we faced issues running on the full HIGGS Dataset), benchmarking \Falkon against GPyTorch (Fig.~\ref{fig:scaling_laws_comparison}).  \Falkon achieves significantly better accuracy for comparable or even smaller training times, highlighting its practical efficiency for large-scale kernel learning.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1\linewidth]{../figures/scalling_laws.png}
+    \caption{Scaling laws for \Falkon on the HIGGS and MSD datasets}
+    \label{fig:scaling_laws_falkon}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1\linewidth]{../figures/Compairaison.png}
+    \caption{Comparison between \Falkon and GPyTorch on the Mini-HIGGS dataset}
+    \label{fig:scaling_laws_comparison}
+\end{figure}
+
+\paragraph{Overall Performance.}
+
+We report the results of our best-performing models and compare them with those obtained in the original \Falkon paper. On HIGGS, our measurements are consistent with the expected performance trends reported in the literature, with \Falkon substantially outperforming baseline methods for a given training budget.
+
+In contrast, our experiments reveal that the \textsc{MDS} dataset is a weak benchmark for evaluating kernel methods. Reported scores can be matched or even exceeded by simple linear regression. Direct inspection of predictions shows very low correlation between input features and targets: near-constant predictors achieve comparable performance. This behavior is largely explained by the evaluation metric, which compresses errors due to the narrow target range (\(\approx[1920,2010]\)), thereby masking differences between expressive models and trivial baselines. Finally, \textsc{MDS} is absent from the current official Falkon repository, further questioning its practical relevance as a benchmarking dataset.
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{5pt}
+\caption{Performance and runtime comparison on large-scale datasets.
+Results report test error (relative error for \textsc{MDS}, \(1-\)AUC for \textsc{HIGGS}) and total training time.
+``\Falkon (paper)'' corresponds to the reference values reported in the original publication.}
+\label{tab:overall_results}
+\begin{tabular}{lcccc}
+\hline
+& \multicolumn{2}{c}{\textbf{MDS} (\(n \approx 5\times10^5\))}
+& \multicolumn{2}{c}{\textbf{HIGGS} (\(n \approx 10^7\))} \\
+\textbf{Solver}
+& \textbf{Rel. Error}
+& \textbf{Time (s)}
+& \textbf{\(1-\)AUC}
+& \textbf{Time (s)} \\
+\hline
+
+\Falkon
+& $0.00545$
+& $83.45$
+& $0.223$
+& $623$ \\
+
+
+Linear Regression
+& $0.003$
+& $1.80$
+& $0.32$
+& $0.031$ \\
+
+\hline
+
+\Falkon\cite{falkonlibrary2020} (paper)
+& $0.0048$
+& $62$
+& $0.180$
+& $443$ \\
+
+\hline
+\end{tabular}
+\end{table}

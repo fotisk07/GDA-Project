@@ -1,0 +1,47 @@
+% !TeX program = pdflatex
+\documentclass[sigconf]{acmart}
+
+% Metadata ACM
+\title{Review of : Kernel methods through the roof: handling billions of points efficiently}
+\author{Fotios Kapotos - Tristan Beruard}
+\affiliation{
+  \institution{CentraleSupélec}
+  \country{France}
+}
+\email{fotiskapotos@gmail.com}
+\email{tristanberuard@gmail.com}
+
+% Packages
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{tikz}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{xspace}
+\newcommand{\Falkon}{\textsc{Falkon}\xspace}
+
+
+\begin{document}
+
+\begin{abstract}
+Kernel methods offer strong statistical guarantees but become computationally impractical on large datasets due to the quadratic storage and cubic time complexity of kernel matrix operations. The \Falkon algorithm addresses these limitations by combining Nyström approximations, preconditioned conjugate gradient solvers, and GPU-oriented system design to scale kernel learning to billions of samples. In this review, we summarize the theoretical foundations of these methods, provide a detailed analysis of the \Falkon algorithm, its efficient implementation, and some of its limitations along with relevant experiments on toy datasets. In addition, we reproduce selected experimental results from the original paper. Our benchmarks confirm the predicted complexity scaling laws and demonstrate the practical efficiency gains enabled by this approach. Reproducibility code is available at: \url{https://github.com/fotisk07/GDA-Project}.
+\end{abstract}
+
+
+\maketitle
+
+% ===== Sections imported from separate files =====
+
+\input{sections/1. introduction}
+\input{sections/2. background}
+\input{sections/3. method}
+\input{sections/4. experiments}
+\input{sections/5. Conclusion}
+
+
+% =================================================
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{acmart}
+
+\end{document}

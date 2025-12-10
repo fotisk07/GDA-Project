@@ -1,0 +1,169 @@
+\section{Method}
+
+\textbf{Motivation of their approach} One key observation motivating their work is that the classical kernel methods have a very low operation density, meaning that each floating point operation requires loading a relatively large amount of data. In contrast, modern GPU are designed for the opposite : they deliver peak performance when many arithmetic operations can be performed on data that is already \textit{in-place} (in fast memory), while data transfer - from for example the host RAM - is pretty slow.
+To better understand why kernel methods suffer from low arithmetic intensity, consider the computation of each coefficient of $K_{nm}$ : in order to apply the operation $k(x_i,x_j)$, one must load one pair $(x_i,x_j)$, so a memory cost of $2ds$ (note $s$ the number of bytes per value, for float64, $s=8$). For an RBF kernel that cost $3d$ in computation time since $|x-y|^2$ implies $d$ differenciations , $d$ multiplications, and about d additions. Therefore this implies for instance with $d=1000$ stored in float64 so $\approx 4~\text{KB}$ (required for enought precision as we will see it later) : 
+\[
+\frac{3d}{2ds}=\frac{3000~\text{FLOP}}{16000~\text{bytes}} \approx 0.188~\text{FLOP/byte}.
+\]
+Such arithmetic density is very low compared to the regime where most GPU operate.
+Consider the classical matrix product (which GPU are known to be efficient for) : load once two matrix $A$ and $B$, , and account for storing the result, the memory cost is $3N^2s$, $N$ being the size of the matrix, and $s$ the number of bytes.  The computation implies $2N^3$ floating point operations. In the case of $N=1000$, this leads to 
+\[
+\frac{2N^{3}}{3N^{2}s} = \frac{1}{12}N \;\approx166.7 ~\text{FLOP/byte}
+\]
+\\
+This value is three orders of magnitude higher in terms of arithmetic density. The objective of the authors is therefore to restructure the kernel solver so that its computational pattern more closely resembles high-density GPU workloads. Although the RBF kernel evaluations themselves remain intrinsically low-density operations, the solver can still be redesigned to maximize the ratio between computations and data transfers—that is, the effective compute density. If implemented naively, the solver can imply large data movement for very little computation (as formalized in next subsection). By carefully choosing block sizes and processing the data in chunks, the authors ensure that operations respect GPU memory constraints while maintaining a favorable balance between memory footprint and transfer overhead.
+
+This tradeoff is inherent: to minimize transfer time one would ideally store all inputs on the GPU, but memory constraints make this impossible for realistic $n$ and $m$. Even storing everything in CPU RAM is nontrivial at scale, so the entire computational pipeline must be rethought. The paper proposes an implementation that maximizes compute density on GPUs while keeping memory usage—and therefore data transfers—under control. 
+
+\subsection{RAM memory bottleneck}
+
+A major contribution of the authors is the reduction of RAM usage, which can be a dominant bottleneck in large-scale kernel methods.
+
+% Write this section here.
+\textbf{Naive implementation and memory cost} If we were to ignore memory constraints, an unoptimized implementation of the solver without any optimization would explicitly store and use each matrix that appears in the \Falkon Algorithm, including the full kernel matrix $K_{nm}$. This is, of course, infeasible at realistic scales. For example, for typical large-scale settings targeted by \Falkon (e.g., $n = 10^9$, $m = 10^5$), forming $K_{nm}$ represents
+\[
+n m = 10^{14} \text{ entries} \approx 800\,\text{TB}
+\]
+in single precision, and would not fit in RAM memory for most of pratical situations ! This already motivates blockwise computations. Further, more subtle optimizations allow the total memory footprint to be reduced essentially to a single $m \times m$ matrix, with no additional multiplicative factors. 
+
+\textbf{No need to store $K_{nm}$ : compute it batch-wise}. In the conjugate gradient iterations, $K_{nm}$ only appear in vector matrix multiplication, and can thus be computed on the fly without explicit storage. A fundamental point of the method is to batch the computation of the vector-matrix, and compute $K_{qm} \in \mathbb{R}^{q\times m}$ with $q << n$. More clearly, as denoting $M\beta=b$ the system to solve by conjugate gradient, the matrix $M$ will never be stored fully, as it would be too big, only $M\beta$ will be, and computed by batches, using the accumulation formula, illustrated here : 
+\[
+K_{nm}^TK_{nm}(T^{-1}A^{-1}\beta) = \sum_{b=1}^{B} k(X_{b,:}, X_m)^\top \bigl(k(X_{b,:}, X_m)\, T^{-1}A^{-1}\beta)
+\]
+We investigate this trade-off in \autoref{fig:memory_chunking}, which illustrates how memory usage and computation time vary with the batch size $q$. Experiments conducted on an NVIDIA T4 GPU (Google Colab) confirm the expected behavior: while smaller values of $q$ reduce GPU memory consumption, they also lead to substantially longer computation times. This slowdown occurs because smaller batches require more frequent memory transfers, which become a significant bottleneck. This effect is clearly visible from the inversion in the ordering of the curves between the two plots.
+
+% Pourquoi? on ne pourrait pas contruire le conditionner par batch? remarque cela demanderait ensuite de l'utiliser par Batch... mais ça serait ok non? 
+
+\textbf{Only keep $A$ and $T$ in memory} If computing $K_{nm}$ can be avoided, the matrix $K_{mm}$ must be materialized in memory to construct the preconditioner. When $m$ is large, the memory footprint of $K_{mm}$ becomes a critical bottleneck, especially if we need to store it alongside $A$ and $T$ the matrix from the Cholesky Decomposition. A key observation made by the authors is that $K_{mm}$ does not appear in the preconditioned linear system solved by conjugate gradient (as we saw just before in \ref{eq: conjugate gradient}). So in order to solve the conjugate gradient descent, we only need in memory $A$ and $T$, as the transpose and inverse operations can be done in-place (directly when computing the above equation) without any other necessary storage.  
+
+
+\textbf{Strategy for preconditionner : store all the necessary matrix values in one place of size $m\times m$} The previous algebraic cancellation allows the solver to overwrite the memory area initially containing $K_{mm}$ with intermediate matrices $T$, $TT^\top$, and finally $A$, without ever needing multiple copies.  To address this issue, the authors design an in-place strategy that reuses a single $m \times m$ buffer throughout all stages of preconditioner construction. Concretely, the preconditioner $\tilde{P}$ of Equation~\ref{eq: P definition} in the original paper is defined through the factorization
+\[
+    \tilde{P}
+    = \frac{1}{\sqrt{n}} T^{-1} A^{-1},
+\]
+where
+\[
+    T = \mathrm{chol}(K_{mm}), \qquad
+    A = \mathrm{chol}\!\left(
+        \tfrac{1}{m} T T^\top + \lambda I_m
+    \right).
+\]
+Starting from $K_{mm}$ stored in the buffer of size $m\times m$, we can compute $T=\text{chol}(K_{mm})$ by overwriting the upper triangular part of $K_{mm}$ (as $T$ is triangular). From $T$, $\tfrac{1}{m} T T^\top + \lambda I_m$ can be computed and stored by overwritting the bottom triangular part of $K_{mm}$ that was left in the buffer. And from here we can finally compute $A$ and overwrite $\tfrac{1}{m} T T^\top + \lambda I_m$ by $A$. The diagonal must be handled carefully—for example, by keeping a buffer of the diagonal of $T$ when overwritting it with the one of $\tfrac{1}{m} T T^\top + \lambda I_m$ and then the one of $A$.
+
+
+In addition to reducing the RAM footprint to a single $m \times m$ matrix, the implementation maintains only:
+\begin{itemize}
+    \item the coefficient vector $\beta \in \mathbb{R}^m$,
+    \item a buffer for the inducing points,
+    \item and a data batch of size $q$ used to compute batches of $K_{nm}$ for matrix--vector products involving .
+\end{itemize}
+
+In this design, approximately $\frac{m^2}{m^2+m+qd+md} \approx90\%$ of the total memory is devoted to the preconditioner, and all matrix--vector products required by conjugate gradient are computed on the GPU without storing $K_{nm}$ explicitly.
+
+One possible criticism arises here: although the authors emphasize that their design minimizes RAM usage as much as possible, the method still requires approximately 150 GB of memory when $m=2\times 10^5$. Such requirements make the approach impractical for most users and effectively force the choice of $m$ to be smaller than the theoretically recommended $m \sim \sqrt{n}$.
+Choosing m significantly below this regime has well-known implications. In the Nyström framework, a too small number of inducing points deteriorates the approximation quality of both $K_{nm}$ and the preconditioner $P$, which in turn worsens the conditioning of the linear system. As a consequence, the number of conjugate-gradient iterations increases, the preconditioner becomes less effective, and both the statistical performance and the computational efficiency may degrade.
+
+This limitation may not be emphasized strongly enough in the paper, especially considering that we encountered this issue directly in our experiments: for large $n$, we were constrained to use very small values of $m$. In that sense, the theoretical recommendation becomes difficult to attain in realistic settings, and the trade-off between memory feasibility and approximation quality might deserves a more explicit discussion.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{../figures/memory_chunking.png}
+    \caption{Comparison of the memory and time consumption for chunking vs non chunking the product $K_{nm}v$ with $v$ a random vector}
+    \label{fig:memory_chunking}
+\end{figure}
+
+\subsection{GPU memory and Multi-GPU support}
+
+If RAM memory is certainly very constrained in most compute system, the GPU memory is even more. 
+
+\textbf{Motivation} The preconditionner storage will typically require $150$ GB of memory, so will not fit on a GPU. We need to deal with it stored on the RAM. Also we will need an efficient computation of the $K_{nm}$ block wise product, that will need to fit on the GPU. For that the authors use Out-Of-Core (OOC) operations : the matrix is stored onto a relatively slower storage than the VRAM of the GPU (for example here the RAM, which has the advantage to be generally bigger in storage), but the operations are then processed onto the GPU. 
+This process is not implemented in classical libraries as PyTorch, as a lot of its main mecanisms as AutoGrad (for backpropagation) or its Kernel assume the data all live in the same place, and let the user handle the transfer between storages if necessary. The authors do provide this implementation in their library. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\linewidth]{../figures/heatmap_q_r.png}
+    \caption{Computationnal time and memory cost on a T4 GPU, according to different range of $q$ and $r$ - parameters set to $n = 50000$, $m = 5000$ and $s = d = 20$}
+    \label{fig:heatmap}
+\end{figure}
+
+- \textbf{Optimized OOC. operations} To minimize the footprint of data-transfers, only the specific RAM-resident block parts required for the Conjuguate Gradient  Descent are transferred onto the GPU (namely, the relevant blocks of $A$, $T$ and $X$). The key detail is that the corresponding block of the kernel matrix is never transferred, but computed direclty onto the device. And the resulting partial output (a part of updated $\beta$) is transfered back to the host.
+
+Therefore a key practical aspect is selecting the optimal chunk size, that is, choosing $q,r,s$ the block dimensions along $n$, $m$ and $d$ (number of data points, Nyström center, and feature dimension). 
+But we need to keep in mind that there exist a tradeoff between 
+\begin{itemize}
+    \item the computationnal complexity $qrs$ (the computation of the batch of $K_{nm}$)
+    \item and the transfert time $qs+ds$ (the required time to transfer the batch of sample $X_{(i:i+q,j:j+s)}$ and $ds$
+\end{itemize}
+
+To maximize GPU utilization under the available memory budget, authors propose to find the optimal value of the tradeoff, i.e.
+\[
+argmax(\frac{qrs}{qs+sd}), \text{with } qs+sd \leq G
+\]
+$G$ being the available GPU memory. 
+\\
+In \autoref{fig:heatmap}, we propose to a toy experiment to check over a true GPU the memory cost and the computationnal time for different values of $q$ and $r$, without batching over the dimension $d$ and with $n$ and $m$ fixed for simplicity. The heatmap is performed over a grid of size $25\times 25$ and then interpolated with a factor 4 and cubic interpolation for smoother plots. The memory usage is as expected increased when $q$ and $r$ both increase. And in the opposite, the computationnal time does decrease with larger values of $q$ and $r$.  
+
+
+
+\textbf{OOC multi GPU Cholesky decomposition} The authors implement an OOC Cholesky decomposition to factorize in a memory efficient way large matrix such as $K_{mm}$, while leveraging multi-GPU, where different GPUs can process different row of the input matrix. We need the cholesky decomposition of $K_{mm}$ to compute $T$ and then $A$. 
+
+Traditionally, a naïve Cholesky decomposition requires loading the entire $m\times m$ matrix into GPU memory, performing all operations in-core, and storing both intermediate and final triangular factors. This approach has a memory cost of approximately $O(m^2)$ which becomes prohibitive for typical used values of $m$. 
+\\
+The goal is to reduce the memory footprint of each batch operation on GPU by reducing the operation to a Cholesky decomposition over a sub-matrix of size $t\times t$. We note $A$ for $K_{mm}$ for simplicity here. $A$ and $L$ are divided into blocks noted $(A_{ij})_{1\leq i,j \leq B}$ and $(L_{ij})_{1\leq i,j \leq B}$ . The matrix $L$ is computed iteratively per column. The first iteration gives a good intuition on how it is performed : 
+\begin{itemize}
+    \item Compute $L_{11} = \text{Chol}(A_{11})$ (fits on GPU when $t$ is correclty set
+    \item Using the triangular structure of $L$, we have $A_{i1 }=L_{i1}L_{11}^T$, so having $L_{11}$, we can compute $L_{i1},\forall i$, as $L_{i1}=A_{i1}(L_{11}^T)^{-1}$, which can be done using TRSM.
+    \item When going to next step, for $L_{i2}$, we will get $A_{i2}=L_{i1}L_{12}^T + L_{i2}L_{22}^T$, and so to avoid doubling the memory usage comparing to step 1, the idea is to sustract $L_{i1}L_{1j}^T$ doubling, for all $i,j$ to each $A_{ij}$, and doing this at each iteration ensures that the temporary GPU memory usage remains bounded by approximately $2\times t^2$. 
+\end{itemize}
+%Mais dcp quels sont les data transfert effectués? et que stocke t-on à chaque étape sur le GPU? 
+The full algorithm is explicitly written in Algorithm 1. The multi GPU advantage is exploited by distributing different block-rows of the matrix across GPUs, allowing them to process independent parts of the Cholesky decomposition in parallel.
+\begin{algorithm}[h]
+\caption{Block Cholesky Decomposition (In-Place)}
+\KwIn{$K_{mm}$ noted $K^{(m)}$, split into $B \times B$ tiles $K^{(m)}_{ij} \in \mathbb{R}^{t \times t}$.}
+\KwOut{Lower triangular matrix $L$ such that $K^{(m)} = LL^\top$.}
+
+\For{$j = 1$ \KwTo $B$}{
+    $L_{j,j} \leftarrow \mathrm{chol}(A_{j,j})$      
+    \For{$i = j+1$ \KwTo $B$}{
+        $L_{i,j} \leftarrow K^{(m)}_{i,j} (L_{j,j}^{-T})$  
+    }
+    \For{$i = j+1$ \KwTo $B$}{
+        \For{$k = j+1$ \KwTo $i$}{
+            $K^{(m)}_{i,k} \leftarrow K^{(m)}_{i,k} - L_{i,j} L_{k,j}^\top$  
+        }
+    }
+}
+\end{algorithm}
+
+\subsection{Optimization of data transfers}
+
+GPU can mostly do 3 types of operations : (i) loading data from RAM, (ii) performing computations on device, and (iii) saving on RAM. These 3 processes can run in parallel, so to coherently exploit this concurrency, authors do schedule GPU tasks so that at step $k$, 
+\begin{itemize}
+    \item the GPU computes the current block operation 
+    \item simultaneously loads the block required for iteration $k+1$ 
+    \item saves the result from iteration $k-1$ back to the RAM memory
+\end{itemize}
+ 
+Assuming each process takes the same time $t$, this reduces the time spent by nearly a factor of three from $3t\times k$ to $t\times (k+2)$ (where the two additional units correspond to the initial data load and the final write). The hypothesis that each process takes the same time could be largely challenged as the transfert as the loading and saving part might take the most time, and overlapping the process in pratice could lead to smaller compute time gain.
+
+\subsection{Other improvements : numerical precision, dealing with thin submatrices and sparse datasets}
+
+
+\textbf{Floating point precision} GPU are known to be very efficient with low precision floating point numbers (WHY). For this, it is generally preferable to do the computation using 32-bit float number instead of 64-bit. However, the computation of the gaussian kernel does involve norm of the form : 
+\[
+\|x - y\|^{2}
+= \|x\|^{2} + \|y\|^{2} - 2\, x^{\top} y
+\]
+where the three terms involve product of $|x|$ and $|y|$ that can be quiet large (specially in high dimension) and that might cancel if $x$ and $y$ are close. In that case there might not be enought significant digit in 32-bit, leading to negative value in kernel blocks. The figure 7 illustrates well with a toy example this phenomenon. Therefore, when computing $K_{mm}$ per block, the authors do use mix precision : inputs are temporarily cast to float64 for the accumulation of the squared distance, and the resulting kernel value is cast back to float32 before storage. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{../figures/floating_precision.png}
+    \caption{Toy experiment : Number of negative values of $||x-y||^2$ with 200 uniform draw $x$ of $\mathcal{N}(0,1)$  of size $d$ for each point, and $y=x+\epsilon$ with epsilon drawn from $10^{-4}\mathcal{N}(0,1)$} 
+    \label{fig:floating_precision}
+\end{figure}
+
+The authors also underly a thin matrixes issue : When matrices as $K_{mm}$ are chunked into blocks, the final block along one dimension may contain only a small number of rows—resulting in a thin matrix. This breaks the computational symmetry across GPUs, and causes a lot of increase of cost. To mitigate this, authors rely on KeOps, which is a library that can deal efficiently with thin kernel matrixes. 
+
+Sparse matrixes that appears in some datasets are also dealt with wrapped code methods such as cuSPARSE, allowing the solver to handle sparse inputs without modification of the core algorithm.
+

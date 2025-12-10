@@ -1,0 +1,62 @@
+This is BibTeX, Version 0.99d (TeX Live 2022/dev/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main.aux
+The style file: ACM-Reference-Format.bst
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Database file #1: acmart.bib
+Warning--I didn't find a database entry for "higgs_280"
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=4) to 20 items from 10.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Warning--empty publisher in gardner2018gpytorch
+Warning--empty address in gardner2018gpytorch
+Warning--page numbers missing in both pages and numpages fields in gardner2018gpytorch
+Warning--empty publisher in falkonlibrary2020
+Warning--empty address in falkonlibrary2020
+Warning--page numbers missing in both pages and numpages fields in falkonlibrary2020
+You've used 5 entries,
+            5981 wiz_defined-function locations,
+            1503 strings with 18841 characters,
+and the built_in function-call counts, 4593 in all, are:
+= -- 449
+> -- 165
+< -- 0
++ -- 54
+- -- 57
+* -- 334
+:= -- 487
+add.period$ -- 25
+call.type$ -- 5
+change.case$ -- 36
+chr.to.int$ -- 5
+cite$ -- 11
+duplicate$ -- 425
+empty$ -- 302
+format.name$ -- 73
+if$ -- 1011
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 12
+newline$ -- 86
+num.names$ -- 35
+pop$ -- 190
+preamble$ -- 1
+purify$ -- 75
+quote$ -- 0
+skip$ -- 159
+stack$ -- 0
+substring$ -- 266
+swap$ -- 25
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 135
+warning$ -- 6
+while$ -- 23
+width$ -- 0
+write$ -- 138
+(There were 7 warnings)
