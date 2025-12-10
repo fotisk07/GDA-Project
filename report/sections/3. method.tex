@@ -13,7 +13,7 @@ Consider the classical matrix product (which GPU are known to be efficient for) 
 \\
 This value is three orders of magnitude higher in terms of arithmetic density. The objective of the authors is therefore to restructure the kernel solver so that its computational pattern more closely resembles high-density GPU workloads. Although the RBF kernel evaluations themselves remain intrinsically low-density operations, the solver can still be redesigned to maximize the ratio between computations and data transfers—that is, the effective compute density. If implemented naively, the solver can imply large data movement for very little computation (as formalized in next subsection). By carefully choosing block sizes and processing the data in chunks, the authors ensure that operations respect GPU memory constraints while maintaining a favorable balance between memory footprint and transfer overhead.
 
-This tradeoff is inherent: to minimize transfer time one would ideally store all inputs on the GPU, but memory constraints make this impossible for realistic $n$ and $m$. Even storing everything in CPU RAM is nontrivial at scale, so the entire computational pipeline must be rethought. The paper proposes an implementation that maximizes compute density on GPUs while keeping memory usage—and therefore data transfers—under control. 
+This tradeoff is inherent: to minimize transfer time one would ideally store all inputs on the GPU, but memory constraints make this impossible for realistic $n$ and $m$. Even storing everything in CPU RAM is nontrivial at scale, so the entire computational pipeline must be rethought.
 
 \subsection{RAM memory bottleneck}
 
@@ -101,6 +101,24 @@ argmax(\frac{qrs}{qs+sd}), \text{with } qs+sd \leq G
 \]
 $G$ being the available GPU memory. 
 \\
+We explicitly write the equation of the split of the data : $X^{(b)}$ is batch of $q$ rows, and the centers into blocks of $r$ columns, $X_m^{(j)}$, we have :
+\[
+K^{(b,j)} = k\!\left(X^{(b)},\, X_m^{(j)}\right) \in \mathbb{R}^{q\times r}.
+\]
+Writing $v = T^{-1}A^{-1}\beta = [v^{(1)},\dots,v^{(J)}]^\top$, the matrix--vector product $u = K_{nm} v$ is computed batch-wise as
+\[
+u^{(b)} = \sum_{j=1}^J K^{(b,j)}\, v^{(j)}, 
+\qquad b = 1,\dots,B.
+\]
+The second stage, needed for evaluating $K_{nm}^\top u = K_{nm}^\top K_{nm} v$ inside conjugate gradient, reuses the same tiles and accumulates over row-batches:
+\[
+w^{(j)} = \sum_{b=1}^B \bigl(K^{(b,j)}\bigr)^{\!\top} u^{(b)},
+\qquad j=1,\dots,J.
+\]
+
+Furthermore for the split of size $s$ along $d$, we can simply accumulate partial distance contributions over these blocks.
+
+
 In \autoref{fig:heatmap}, we propose to a toy experiment to check over a true GPU the memory cost and the computationnal time for different values of $q$ and $r$, without batching over the dimension $d$ and with $n$ and $m$ fixed for simplicity. The heatmap is performed over a grid of size $25\times 25$ and then interpolated with a factor 4 and cubic interpolation for smoother plots. The memory usage is as expected increased when $q$ and $r$ both increase. And in the opposite, the computationnal time does decrease with larger values of $q$ and $r$.  
 
 
@@ -116,24 +134,8 @@ The goal is to reduce the memory footprint of each batch operation on GPU by red
     \item When going to next step, for $L_{i2}$, we will get $A_{i2}=L_{i1}L_{12}^T + L_{i2}L_{22}^T$, and so to avoid doubling the memory usage comparing to step 1, the idea is to sustract $L_{i1}L_{1j}^T$ doubling, for all $i,j$ to each $A_{ij}$, and doing this at each iteration ensures that the temporary GPU memory usage remains bounded by approximately $2\times t^2$. 
 \end{itemize}
 %Mais dcp quels sont les data transfert effectués? et que stocke t-on à chaque étape sur le GPU? 
-The full algorithm is explicitly written in Algorithm 1. The multi GPU advantage is exploited by distributing different block-rows of the matrix across GPUs, allowing them to process independent parts of the Cholesky decomposition in parallel.
-\begin{algorithm}[h]
-\caption{Block Cholesky Decomposition (In-Place)}
-\KwIn{$K_{mm}$ noted $K^{(m)}$, split into $B \times B$ tiles $K^{(m)}_{ij} \in \mathbb{R}^{t \times t}$.}
-\KwOut{Lower triangular matrix $L$ such that $K^{(m)} = LL^\top$.}
+The full algorithm iteratively does the above steps for all columns. The multi GPU advantage is exploited by distributing different block-rows of the matrix across GPUs, allowing them to process independent parts of the Cholesky decomposition in parallel.
 
-\For{$j = 1$ \KwTo $B$}{
-    $L_{j,j} \leftarrow \mathrm{chol}(A_{j,j})$      
-    \For{$i = j+1$ \KwTo $B$}{
-        $L_{i,j} \leftarrow K^{(m)}_{i,j} (L_{j,j}^{-T})$  
-    }
-    \For{$i = j+1$ \KwTo $B$}{
-        \For{$k = j+1$ \KwTo $i$}{
-            $K^{(m)}_{i,k} \leftarrow K^{(m)}_{i,k} - L_{i,j} L_{k,j}^\top$  
-        }
-    }
-}
-\end{algorithm}
 
 \subsection{Optimization of data transfers}
 
@@ -145,6 +147,10 @@ GPU can mostly do 3 types of operations : (i) loading data from RAM, (ii) perfor
 \end{itemize}
  
 Assuming each process takes the same time $t$, this reduces the time spent by nearly a factor of three from $3t\times k$ to $t\times (k+2)$ (where the two additional units correspond to the initial data load and the final write). The hypothesis that each process takes the same time could be largely challenged as the transfert as the loading and saving part might take the most time, and overlapping the process in pratice could lead to smaller compute time gain.
+
+
+
+
 
 \subsection{Other improvements : numerical precision, dealing with thin submatrices and sparse datasets}
 

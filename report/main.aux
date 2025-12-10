@@ -59,23 +59,22 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.2}GPU memory and Multi-GPU support}{6}{subsection.3.2}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Computationnal time and memory cost on a T4 GPU, according to different range of $q$ and $r$ - parameters set to $n = 50000$, $m = 5000$ and $s = d = 20$\relax }}{7}{figure.caption.9}\protected@file@percent }
 \newlabel{fig:heatmap}{{7}{7}{Computationnal time and memory cost on a T4 GPU, according to different range of $q$ and $r$ - parameters set to $n = 50000$, $m = 5000$ and $s = d = 20$\relax }{figure.caption.9}{}}
-\@writefile{loa}{\contentsline {algocf}{\numberline {1}{\ignorespaces Block Cholesky Decomposition (In-Place)\relax }}{7}{algocf.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Optimization of data transfers}{7}{subsection.3.3}\protected@file@percent }
 \citation{year_prediction_msd_203}
 \citation{higgs_280}
 \citation{gardner2018gpytorch}
 \citation{falkonlibrary2020}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Other improvements : numerical precision, dealing with thin submatrices and sparse datasets}{8}{subsection.3.4}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Toy experiment : Number of negative values of $||x-y||^2$ with 200 uniform draw $x$ of $\mathcal  {N}(0,1)$ of size $d$ for each point, and $y=x+\epsilon $ with epsilon drawn from $10^{-4}\mathcal  {N}(0,1)$\relax }}{8}{figure.caption.11}\protected@file@percent }
-\newlabel{fig:floating_precision}{{8}{8}{Toy experiment : Number of negative values of $||x-y||^2$ with 200 uniform draw $x$ of $\mathcal {N}(0,1)$ of size $d$ for each point, and $y=x+\epsilon $ with epsilon drawn from $10^{-4}\mathcal {N}(0,1)$\relax }{figure.caption.11}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Toy experiment : Number of negative values of $||x-y||^2$ with 200 uniform draw $x$ of $\mathcal  {N}(0,1)$ of size $d$ for each point, and $y=x+\epsilon $ with epsilon drawn from $10^{-4}\mathcal  {N}(0,1)$\relax }}{8}{figure.caption.10}\protected@file@percent }
+\newlabel{fig:floating_precision}{{8}{8}{Toy experiment : Number of negative values of $||x-y||^2$ with 200 uniform draw $x$ of $\mathcal {N}(0,1)$ of size $d$ for each point, and $y=x+\epsilon $ with epsilon drawn from $10^{-4}\mathcal {N}(0,1)$\relax }{figure.caption.10}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {4}Experimentation}{8}{section.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Practical details}{8}{subsection.4.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Datasets}{8}{section*.12}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Models}{8}{section*.13}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Compute}{8}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Datasets}{8}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Models}{8}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Compute}{8}{section*.13}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Results}{8}{subsection.4.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Sanity Check}{8}{section*.15}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Scaling Laws.}{8}{section*.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Sanity Check}{8}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Scaling Laws.}{8}{section*.16}\protected@file@percent }
 \citation{falkonlibrary2020}
 \bibstyle{ACM-Reference-Format}
 \bibdata{acmart}
@@ -89,16 +88,16 @@
 \newlabel{tocindent1}{4.185pt}
 \newlabel{tocindent2}{10.34999pt}
 \newlabel{tocindent3}{0pt}
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Sanity-check comparison on the \texttt  {mini-HIGGS} dataset. $1-$AUC and total runtime are reported for each method.\relax }}{9}{table.caption.16}\protected@file@percent }
-\newlabel{tab:sanity_mini_higgs}{{1}{9}{Sanity-check comparison on the \texttt {mini-HIGGS} dataset. $1-$AUC and total runtime are reported for each method.\relax }{table.caption.16}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Scaling laws for \textsc  {Falkon}\xspace  on the HIGGS and MSD datasets\relax }}{9}{figure.caption.18}\protected@file@percent }
-\newlabel{fig:scaling_laws_falkon}{{9}{9}{Scaling laws for \Falkon on the HIGGS and MSD datasets\relax }{figure.caption.18}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Comparison between \textsc  {Falkon}\xspace  and GPyTorch on the Mini-HIGGS dataset\relax }}{9}{figure.caption.19}\protected@file@percent }
-\newlabel{fig:scaling_laws_comparison}{{10}{9}{Comparison between \Falkon and GPyTorch on the Mini-HIGGS dataset\relax }{figure.caption.19}{}}
-\@writefile{toc}{\contentsline {paragraph}{Overall Performance.}{9}{section*.20}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Performance and runtime comparison on large-scale datasets. Results report test error (relative error for \textsc  {MDS}, \(1-\)AUC for \textsc  {HIGGS}) and total training time. ``\textsc  {Falkon}\xspace  (paper)'' corresponds to the reference values reported in the original publication.\relax }}{9}{table.caption.21}\protected@file@percent }
-\newlabel{tab:overall_results}{{2}{9}{Performance and runtime comparison on large-scale datasets. Results report test error (relative error for \textsc {MDS}, \(1-\)AUC for \textsc {HIGGS}) and total training time. ``\Falkon (paper)'' corresponds to the reference values reported in the original publication.\relax }{table.caption.21}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Sanity-check comparison on the \texttt  {mini-HIGGS} dataset. $1-$AUC and total runtime are reported for each method.\relax }}{9}{table.caption.15}\protected@file@percent }
+\newlabel{tab:sanity_mini_higgs}{{1}{9}{Sanity-check comparison on the \texttt {mini-HIGGS} dataset. $1-$AUC and total runtime are reported for each method.\relax }{table.caption.15}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Scaling laws for \textsc  {Falkon}\xspace  on the HIGGS and MSD datasets\relax }}{9}{figure.caption.17}\protected@file@percent }
+\newlabel{fig:scaling_laws_falkon}{{9}{9}{Scaling laws for \Falkon on the HIGGS and MSD datasets\relax }{figure.caption.17}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Comparison between \textsc  {Falkon}\xspace  and GPyTorch on the Mini-HIGGS dataset\relax }}{9}{figure.caption.18}\protected@file@percent }
+\newlabel{fig:scaling_laws_comparison}{{10}{9}{Comparison between \Falkon and GPyTorch on the Mini-HIGGS dataset\relax }{figure.caption.18}{}}
+\@writefile{toc}{\contentsline {paragraph}{Overall Performance.}{9}{section*.19}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Performance and runtime comparison on large-scale datasets. Results report test error (relative error for \textsc  {MDS}, \(1-\)AUC for \textsc  {HIGGS}) and total training time. ``\textsc  {Falkon}\xspace  (paper)'' corresponds to the reference values reported in the original publication.\relax }}{9}{table.caption.20}\protected@file@percent }
+\newlabel{tab:overall_results}{{2}{9}{Performance and runtime comparison on large-scale datasets. Results report test error (relative error for \textsc {MDS}, \(1-\)AUC for \textsc {HIGGS}) and total training time. ``\Falkon (paper)'' corresponds to the reference values reported in the original publication.\relax }{table.caption.20}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {5}Conclusion}{9}{section.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{References}{9}{section*.23}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{9}{section*.22}\protected@file@percent }
 \newlabel{TotPages}{{9}{9}{}{page.9}{}}
 \gdef \@abspage@last{9}
