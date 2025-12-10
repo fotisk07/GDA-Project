@@ -33,8 +33,8 @@ Pour jeudi
 - see Figure X ligne 115 -> OK
 - corriger l'erreur de notaton cholesky -> OK
 - insister dans la partie méthode sur les choses claires plutôt que celles des choses pas claires | peut être réexpliquer plus en détails le chunking | expliquer les figures, pas juste les mettres | passer un petit coup de ChatGPT de nouveau sur l'anglais | peut être enlever l'algo de Cholesky, en tout cas enlever la redondance avec les premières étapes -> OK
+- terminer les heatmaps -> OK
 
 - bien vérifier la formule par batch block wise 
 - rajouter l'opération par batch quand on a q,r et s
-- terminer les heatmaps 
 - expliquer le ratio ds 
